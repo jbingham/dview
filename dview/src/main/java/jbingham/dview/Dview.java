@@ -22,9 +22,9 @@ import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.options.Validation.Required;
 
 /**
- * Create a viewer for a DAG in a dsub pipeline.
+ * Create a viewer for a DAG in a dsub or other Google Pipelines API pipeline.
  * <p>
- * The DAG contains job IDs defined as a JSON string.
+ * Currently, the DAG must be explicitly defined in a YAML string containing job IDs.
  * On Google Cloud, the job IDs are Google Genomics Operation IDs.
  * E.g.:
  * <pre>
@@ -41,6 +41,11 @@ import org.apache.beam.sdk.options.Validation.Required;
  *   - jobId4
  * - jobId5
  * </pre>
+ * </p>
+ * <p>
+ * In the future, it ought to be possible to lookup the whole DAG from the first job ID.
+ * This would require that later operations contain the job IDs of the jobs they're
+ * dependent on.
  * </p>
  */
 public class Dview {
