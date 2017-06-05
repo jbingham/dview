@@ -34,8 +34,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.yaml.snakeyaml.Yaml;
 
-import com.google.api.services.genomics.model.Operation;
-
 /**
  * Create a viewer for a DAG in a dsub or other Google Pipelines API pipeline.
  * <p>
@@ -65,13 +63,15 @@ import com.google.api.services.genomics.model.Operation;
  */
 public class Dview {
   private static final Logger LOG = LoggerFactory.getLogger(Dview.class);
+  private static GooglePipelinesProvider provider;
 
   public interface DviewOptions extends PipelineOptions {
-   @Description("DAG definition as YAML list of job IDs")
+    @Description("DAG definition as YAML list of job IDs")
     @Required
     String getDAG();
-
     void setDAG(String value);
+    
+    // Could get/set provider here, if there were more than one.
   }
 
   public static void main(String[] args) {
@@ -80,10 +80,13 @@ public class Dview {
 
     Yaml yaml = new Yaml();
     Object graph = yaml.load(options.getDAG());
+    
+    // Here's where we could support multiple providers
+    provider = new GooglePipelinesProvider();
    
     Pipeline p = Pipeline.create(options);
     PCollection<String> input = p.apply(Create.of("Start"));
-    input = graph(graph, input);
+    input = createGraph(graph, input);
 
     p.run();
   }
@@ -95,7 +98,7 @@ public class Dview {
    * @param input the inputs to the graph item
    * @return the root node in the (sub)graph
    */
-  private static PCollection<String> graph(Object graphItem, PCollection<String> input) {
+  static PCollection<String> createGraph(Object graphItem, PCollection<String> input) {
     PCollection<String> output = input;
 
     // Node
@@ -103,13 +106,8 @@ public class Dview {
       LOG.info("Adding jobId: " + graphItem);
 
       String jobId = (String)graphItem;
-      Operation operation;
-      try {
-        operation = GooglePipelinesProvider.getOperation(jobId);
-      } catch (Exception e) {
-        throw new RuntimeException("Failed to get operation " + jobId, e);
-      }
-      output = input.apply(new WaitForJob(jobId, operation.getName()));
+      String jobName = provider.getJobName(jobId);
+      output = input.apply(new WaitForJob(jobId, jobName));
 
     // Branch
     } else if (graphItem instanceof Map) {
@@ -117,7 +115,7 @@ public class Dview {
 
       @SuppressWarnings("unchecked")
       Collection<?> branches = ((Map<String,Object>) graphItem).values();
-      output = branches(branches, input);
+      output = createBranches(branches, input);
 
     // Edge
     } else if (graphItem instanceof Collection<?>) {
@@ -126,16 +124,15 @@ public class Dview {
       // The output of each step is input to the next
       Collection<?> steps = (Collection<?>)graphItem;
       for (Object item : steps) {
-        output = graph(item, output);
+        output = createGraph(item, output);
       }
     } else {
       throw new IllegalStateException("Invalid graph item: " + graphItem);
     }
-    
     return output;
   }
 
-  private static PCollection<String> branches(Collection<?> branches, PCollection<String> input) {  
+  private static PCollection<String> createBranches(Collection<?> branches, PCollection<String> input) {  
     LOG.info("Branch count: " + branches.size());
 
     PCollectionList<String> outputs = null;
@@ -144,7 +141,7 @@ public class Dview {
     for (Object branch : branches) {
       LOG.info("Adding branch");
 
-      PCollection<String> branchOutput = graph(branch, input);
+      PCollection<String> branchOutput = createGraph(branch, input);
       outputs = 
           outputs == null ? 
               PCollectionList.of(branchOutput) :
@@ -166,7 +163,7 @@ public class Dview {
 
     @Override
     public PCollection<String> expand(PCollection<String> input) {
-      GooglePipelinesProvider.wait(jobId);
+      provider.getJobStatus(jobId, true);
       return input;
     } 
   }

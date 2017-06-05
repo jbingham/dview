@@ -39,7 +39,13 @@
     <dependency>
       <groupId>com.google.apis</groupId>
       <artifactId>google-api-services-genomics</artifactId>
-      <version>v1-rev494-1.22.0</version>
+      <version>v1alpha2-rev30-1.20.0</version>
+    </dependency>
+    <dependency>
+    	<groupId>junit</groupId>
+    	<artifactId>junit</artifactId>
+    	<version>4.11</version>
+    	<scope>test</scope>
     </dependency>
   </dependencies>
 </project>

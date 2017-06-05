@@ -21,17 +21,22 @@ import com.google.api.client.http.HttpTransport;
 import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.services.genomics.Genomics;
+import com.google.api.services.genomics.Genomics.Pipelines.Run;
 import com.google.api.services.genomics.model.Operation;
+import com.google.api.services.genomics.model.Pipeline;
+import com.google.api.services.genomics.model.RunPipelineArgs;
+import com.google.api.services.genomics.model.RunPipelineRequest;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.Arrays;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Use the Google Genomics API for checking status of nodes in the pipeline graph.
+ * Use the Google Genomics Pipelines API for checking status of jobs.
  */
 public class GooglePipelinesProvider {
   static final Logger LOG = LoggerFactory.getLogger(GooglePipelinesProvider.class);
@@ -40,18 +45,19 @@ public class GooglePipelinesProvider {
   /**
    * Call the Google Genomics Operations API.
    */
-  public static Operation getOperation(String name) 
+  public Operation getJobStatus(String jobId) 
       throws IOException, GeneralSecurityException {
     Genomics g = createGenomicsService();
-    Genomics.Operations.Get req = g.operations().get(name);
+    Genomics.Operations.Get req = g.operations().get(jobId);
     Operation o = req.execute();
     return o;
   }
 
   /**
+   * Call the Google Genomics Operations API.
    * Block until the operation is done.
    */
-  public static Operation wait(String name) {
+  public Operation getJobStatus(String jobId, boolean wait) {
     Operation status = null;
     do {
       LOG.debug("Sleeping for " + POLL_INTERVAL + " sec");
@@ -61,7 +67,7 @@ public class GooglePipelinesProvider {
         // ignore
       }
       try {
-        status = getOperation(status.getName());
+        status = getJobStatus(status.getName());
       } catch (Exception e) {
         LOG.warn("Error checking operation status: " + e.getMessage());
       }
@@ -84,5 +90,30 @@ public class GooglePipelinesProvider {
     return new Genomics.Builder(httpTransport, jsonFactory, credential)
         .setApplicationName("Google-GenomicsSample/0.1")
         .build();
+  }
+
+  public String getJobName(String jobId) {
+    Operation operation;
+    try {
+      operation = getJobStatus(jobId);
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to get operation " + jobId, e);
+    }
+    Map<?,?> request = (Map<?,?>)operation.getMetadata().get("request");
+    Map<?,?> pipeline = (Map<?,?>)request.get("ephemeralPipeline");
+    String jobName = (String)pipeline.get("name");
+    return jobName;
+  }
+  
+  public Operation submitJob(Pipeline pipeline, RunPipelineArgs args)
+      throws IOException, GeneralSecurityException {
+    RunPipelineRequest request = new RunPipelineRequest();
+    request.setEphemeralPipeline(pipeline);
+    request.setPipelineArgs(args);
+
+    Genomics g = createGenomicsService();
+    Run run = g.pipelines().run(request);
+    Operation op = run.execute();
+    return op;    
   }
 }
