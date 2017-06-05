@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Verily Life Sciences.
+ * Copyright 2017 Google.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,12 +51,8 @@ public class GooglePipelinesProvider {
   /**
    * Block until the operation is done.
    */
-  public static Operation wait(Operation o) throws GeneralSecurityException {
-    if (o.getDone()) {
-      return o;
-    }
-
-    Operation status = o;
+  public static Operation wait(String name) {
+    Operation status = null;
     do {
       LOG.debug("Sleeping for " + POLL_INTERVAL + " sec");
       try {
@@ -66,7 +62,7 @@ public class GooglePipelinesProvider {
       }
       try {
         status = getOperation(status.getName());
-      } catch (IOException e) {
+      } catch (Exception e) {
         LOG.warn("Error checking operation status: " + e.getMessage());
       }
     } while (status.getDone() == null || !status.getDone());

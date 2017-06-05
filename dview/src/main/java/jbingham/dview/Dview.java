@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Verily Life Sciences.
+ * Copyright 2017 Google.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,11 +15,26 @@
  */
 package jbingham.dview;
 
+import java.util.Collection;
+import java.util.Map;
+
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.options.Description;
 import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.options.Validation.Required;
+import org.apache.beam.sdk.transforms.Combine;
+import org.apache.beam.sdk.transforms.Create;
+import org.apache.beam.sdk.transforms.Flatten;
+import org.apache.beam.sdk.transforms.PTransform;
+import org.apache.beam.sdk.transforms.SerializableFunction;
+import org.apache.beam.sdk.values.PCollection;
+import org.apache.beam.sdk.values.PCollectionList;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.yaml.snakeyaml.Yaml;
+
+import com.google.api.services.genomics.model.Operation;
 
 /**
  * Create a viewer for a DAG in a dsub or other Google Pipelines API pipeline.
@@ -44,11 +59,12 @@ import org.apache.beam.sdk.options.Validation.Required;
  * </p>
  * <p>
  * In the future, it ought to be possible to lookup the whole DAG from the first job ID.
- * This would require that later operations contain the job IDs of the jobs they're
- * dependent on.
+ * This would require that later operations store the job IDs of the jobs they're
+ * dependent.
  * </p>
  */
 public class Dview {
+  private static final Logger LOG = LoggerFactory.getLogger(Dview.class);
 
   public interface DviewOptions extends PipelineOptions {
    @Description("DAG definition as YAML list of job IDs")
@@ -59,10 +75,123 @@ public class Dview {
   }
 
   public static void main(String[] args) {
-    System.out.println("Hello World!");
     DviewOptions options = 
         PipelineOptionsFactory.fromArgs(args).withValidation().as(DviewOptions.class);
-    Pipeline p = DAG.createPipeline(options);
+
+    Yaml yaml = new Yaml();
+    Object graph = yaml.load(options.getDAG());
+   
+    Pipeline p = Pipeline.create(options);
+    PCollection<String> input = p.apply(Create.of("Start"));
+    input = graph(graph, input);
+
     p.run();
+  }
+
+  /**
+   * Recursively construct the Beam pipeline.
+   *
+   * @param graphItem a node, edge, or branch point
+   * @param input the inputs to the graph item
+   * @return the root node in the (sub)graph
+   */
+  private static PCollection<String> graph(Object graphItem, PCollection<String> input) {
+    PCollection<String> output = input;
+
+    // Node
+    if (graphItem instanceof String) {
+      LOG.info("Adding jobId: " + graphItem);
+
+      String jobId = (String)graphItem;
+      Operation operation;
+      try {
+        operation = GooglePipelinesProvider.getOperation(jobId);
+      } catch (Exception e) {
+        throw new RuntimeException("Failed to get operation " + jobId, e);
+      }
+      output = input.apply(new WaitForJob(jobId, operation.getName()));
+
+    // Branch
+    } else if (graphItem instanceof Map) {
+      LOG.info("Adding branches");
+
+      @SuppressWarnings("unchecked")
+      Collection<?> branches = ((Map<String,Object>) graphItem).values();
+      output = branches(branches, input);
+
+    // Edge
+    } else if (graphItem instanceof Collection<?>) {
+      LOG.info("Adding steps");
+
+      // The output of each step is input to the next
+      Collection<?> steps = (Collection<?>)graphItem;
+      for (Object item : steps) {
+        output = graph(item, output);
+      }
+    } else {
+      throw new IllegalStateException("Invalid graph item: " + graphItem);
+    }
+    
+    return output;
+  }
+
+  private static PCollection<String> branches(Collection<?> branches, PCollection<String> input) {  
+    LOG.info("Branch count: " + branches.size());
+
+    PCollectionList<String> outputs = null;
+
+    // For each edge, apply a transform to the input collection
+    for (Object branch : branches) {
+      LOG.info("Adding branch");
+
+      PCollection<String> branchOutput = graph(branch, input);
+      outputs = 
+          outputs == null ? 
+              PCollectionList.of(branchOutput) :
+              outputs.and(branchOutput);
+    }
+
+    LOG.info("Merging " + outputs.size() + " branches");
+    return outputs.apply(new MergeBranches());
+  }
+
+  @SuppressWarnings("serial")
+  public static class WaitForJob extends PTransform<PCollection<String>, PCollection<String>> {
+    private String jobId;
+ 
+    public WaitForJob(String jobId, String name) {
+      super(name);
+      this.jobId = jobId;
+    }
+
+    @Override
+    public PCollection<String> expand(PCollection<String> input) {
+      GooglePipelinesProvider.wait(jobId);
+      return input;
+    } 
+  }
+  
+  /**
+   * Merge branches in the graph.
+   */
+  @SuppressWarnings("serial")
+  public static class MergeBranches extends PTransform<PCollectionList<String>, PCollection<String>> {
+    private static int numMerges = 0;
+
+    public MergeBranches() {
+      // Give the transform a friendly name in the UI.
+      super("MergeBranches" + ++numMerges);
+    }
+
+    @Override
+    public PCollection<String> expand(PCollectionList<String> input) {
+      return input
+          .apply(Flatten.<String>pCollections())
+          .apply(Combine.globally(new SerializableFunction<Iterable<String>,String>() {
+              public String apply(Iterable<String> input) {
+                return "Merged";
+              }
+          }));
+    }
   }
 }
