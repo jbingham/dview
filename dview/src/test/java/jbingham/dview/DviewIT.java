@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.Collections;
 
+import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,7 +37,7 @@ import junit.framework.TestCase;
  * Also, enable the storage, compute, genomics, and dataflow APIs.
  */
 public class DviewIT extends TestCase {
-  private static final Logger LOG = LoggerFactory.getLogger(DviewIT.class);
+  static final Logger LOG = LoggerFactory.getLogger(DviewIT.class);
   private static final String TEST_PROJECT = System.getenv("TEST_PROJECT");
   private static final String TEST_GCS_PATH = System.getenv("TEST_GCS_PATH");
 
@@ -49,20 +50,23 @@ public class DviewIT extends TestCase {
         !TEST_GCS_PATH.endsWith("/"));
 
     LOG.info("TEST_PROJECT=" + TEST_PROJECT);
+    LOG.info("TEST_GCS_PATH=" + TEST_GCS_PATH);
   }
 
+  @Test
   public void testDview() throws IOException, GeneralSecurityException {
     // Submit jobs with delays to simulate task dependency
     Operation jobId1 = submitJob("job1", 0);
-    Operation jobId2a = submitJob("job2a", 60 * 3);
-    Operation jobId2b = submitJob("job2b", 60 * 3);
-    Operation jobId3 = submitJob("job3", 60 * 6);
-    Operation jobId4 = submitJob("job4", 60 * 9);
+    Operation jobId2a = submitJob("job2a", 60 * 2);
+    Operation jobId2b = submitJob("job2b", 60 * 2);
+    Operation jobId3 = submitJob("job3", 60 * 4);
+    Operation jobId4 = submitJob("job4", 60 * 6);
 
-    Dview.main(new String[] {
+    Dview.main(new String[] { 
         "--project=" + TEST_PROJECT,
         "--staging=" + TEST_GCS_PATH,
-        "--graph=" + "\"\n" +
+        "--runner=DirectPipelineRunner",
+        "--dag=" + "\"\n" +
             "- " + jobId1 + " \"" +
             "- BRANCH: \"" +
             "  - - " + jobId2a + " \"" +
@@ -74,8 +78,6 @@ public class DviewIT extends TestCase {
   
   private Operation submitJob(String name, int sleepTime) throws IOException, GeneralSecurityException {
     PipelineResources resources = new PipelineResources();
-    resources.setMinimumCpuCores(1);
-    resources.setMinimumRamGb(1.0);
     resources.setZones(Collections.singletonList("us-central1-a"));
 
     DockerExecutor docker = new DockerExecutor();

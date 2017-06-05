@@ -35,9 +35,10 @@ import org.slf4j.LoggerFactory;
 import org.yaml.snakeyaml.Yaml;
 
 /**
- * Create a viewer for a DAG in a dsub or other Google Pipelines API pipeline.
+ * Create a viewer for a DAG in a dsub or other pipeline. A task scheduler provider
+ * for the Google Genomics Pipelines API is used to check for task status.
  * <p>
- * Currently, the DAG must be explicitly defined in a YAML string containing job IDs.
+ * The DAG must be explicitly defined in a YAML string containing job IDs.
  * On Google Cloud, the job IDs are Google Genomics Operation IDs.
  * E.g.:
  * <pre>
@@ -58,20 +59,18 @@ import org.yaml.snakeyaml.Yaml;
  * <p>
  * In the future, it ought to be possible to lookup the whole DAG from the first job ID.
  * This would require that later operations store the job IDs of the jobs they're
- * dependent.
+ * dependent on.
  * </p>
  */
 public class Dview {
-  private static final Logger LOG = LoggerFactory.getLogger(Dview.class);
-  private static GooglePipelinesProvider provider;
+  static final Logger LOG = LoggerFactory.getLogger(Dview.class);
+  private static GooglePipelinesProvider provider = new GooglePipelinesProvider();
 
   public interface DviewOptions extends PipelineOptions {
     @Description("DAG definition as YAML list of job IDs")
     @Required
-    String getDAG();
-    void setDAG(String value);
-    
-    // Could get/set provider here, if there were more than one.
+    String getDag();
+    void setDag(String value);
   }
 
   public static void main(String[] args) {
@@ -79,10 +78,7 @@ public class Dview {
         PipelineOptionsFactory.fromArgs(args).withValidation().as(DviewOptions.class);
 
     Yaml yaml = new Yaml();
-    Object graph = yaml.load(options.getDAG());
-    
-    // Here's where we could support multiple providers
-    provider = new GooglePipelinesProvider();
+    Object graph = yaml.load(options.getDag());
    
     Pipeline p = Pipeline.create(options);
     PCollection<String> input = p.apply(Create.of("Start"));
@@ -92,7 +88,7 @@ public class Dview {
   }
 
   /**
-   * Recursively construct the Beam pipeline.
+   * Recursively construct the Beam pipeline graph.
    *
    * @param graphItem a node, edge, or branch point
    * @param input the inputs to the graph item
@@ -101,15 +97,25 @@ public class Dview {
   static PCollection<String> createGraph(Object graphItem, PCollection<String> input) {
     PCollection<String> output = input;
 
-    // Node
+    // A single task
     if (graphItem instanceof String) {
-      LOG.info("Adding jobId: " + graphItem);
+      LOG.info("Adding task: " + graphItem);
 
       String jobId = (String)graphItem;
       String jobName = provider.getJobName(jobId);
       output = input.apply(new WaitForJob(jobId, jobName));
 
-    // Branch
+    // A list of tasks
+    } else if (graphItem instanceof Collection<?>) {
+      LOG.info("Adding task list");
+
+      // The output of each task is input to the next
+      Collection<?> tasks = (Collection<?>)graphItem;
+      for (Object task : tasks) {
+        output = createGraph(task, output);
+      }
+
+    // A branch in the graph
     } else if (graphItem instanceof Map) {
       LOG.info("Adding branches");
 
@@ -117,15 +123,6 @@ public class Dview {
       Collection<?> branches = ((Map<String,Object>) graphItem).values();
       output = createBranches(branches, input);
 
-    // Edge
-    } else if (graphItem instanceof Collection<?>) {
-      LOG.info("Adding steps");
-
-      // The output of each step is input to the next
-      Collection<?> steps = (Collection<?>)graphItem;
-      for (Object item : steps) {
-        output = createGraph(item, output);
-      }
     } else {
       throw new IllegalStateException("Invalid graph item: " + graphItem);
     }
@@ -137,10 +134,10 @@ public class Dview {
 
     PCollectionList<String> outputs = null;
 
-    // For each edge, apply a transform to the input collection
     for (Object branch : branches) {
       LOG.info("Adding branch");
 
+      // Recursively create a graph for each branch
       PCollection<String> branchOutput = createGraph(branch, input);
       outputs = 
           outputs == null ? 
@@ -176,7 +173,6 @@ public class Dview {
     private static int numMerges = 0;
 
     public MergeBranches() {
-      // Give the transform a friendly name in the UI.
       super("MergeBranches" + ++numMerges);
     }
 

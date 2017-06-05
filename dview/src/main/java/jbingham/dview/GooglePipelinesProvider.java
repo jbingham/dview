@@ -42,41 +42,6 @@ public class GooglePipelinesProvider {
   static final Logger LOG = LoggerFactory.getLogger(GooglePipelinesProvider.class);
   private final static int POLL_INTERVAL = 30;
 
-  /**
-   * Call the Google Genomics Operations API.
-   */
-  public Operation getJobStatus(String jobId) 
-      throws IOException, GeneralSecurityException {
-    Genomics g = createGenomicsService();
-    Genomics.Operations.Get req = g.operations().get(jobId);
-    Operation o = req.execute();
-    return o;
-  }
-
-  /**
-   * Call the Google Genomics Operations API.
-   * Block until the operation is done.
-   */
-  public Operation getJobStatus(String jobId, boolean wait) {
-    Operation status = null;
-    do {
-      LOG.debug("Sleeping for " + POLL_INTERVAL + " sec");
-      try {
-        TimeUnit.SECONDS.sleep(POLL_INTERVAL);
-      } catch (InterruptedException e) {
-        // ignore
-      }
-      try {
-        status = getJobStatus(status.getName());
-      } catch (Exception e) {
-        LOG.warn("Error checking operation status: " + e.getMessage());
-      }
-    } while (status.getDone() == null || !status.getDone());
-
-    LOG.info("Done! " + status.getName());
-    return status;
-  }
-
   private static Genomics createGenomicsService() throws IOException, GeneralSecurityException {
     HttpTransport httpTransport = GoogleNetHttpTransport.newTrustedTransport();
     JsonFactory jsonFactory = JacksonFactory.getDefaultInstance();
@@ -90,6 +55,58 @@ public class GooglePipelinesProvider {
     return new Genomics.Builder(httpTransport, jsonFactory, credential)
         .setApplicationName("Google-GenomicsSample/0.1")
         .build();
+  }
+
+  private Operation getJobStatus(String jobId) throws IOException{
+    Operation status;
+    try {
+      Genomics service = createGenomicsService();
+      Genomics.Operations.Get request = service.operations().get(jobId);
+      status = request.execute();
+    } catch (GeneralSecurityException e) {
+      throw new RuntimeException(e);
+    }
+    return status;
+  }
+
+  /**
+   * @throws RuntimeException if the job failed
+   */
+  public Operation getJobStatus(String jobId, boolean block) {
+    LOG.info("Checking job status for job " + jobId);
+    Operation status = null;
+
+    if (!block) {
+      try {
+        status = getJobStatus(jobId);
+      } catch (IOException e) {
+        LOG.error("Failed to get job status");
+        throw new RuntimeException(e);
+      }
+    } else {
+      do {
+        try {
+          TimeUnit.SECONDS.sleep(POLL_INTERVAL);
+        } catch (InterruptedException e) {
+          // ignore
+        }
+  
+        try {
+          status = getJobStatus(status.getName());
+        } catch (IOException e) {
+          LOG.warn("Error getting operation status. Retrying in " + POLL_INTERVAL + " sec");
+          LOG.warn(e.toString());
+        }
+      } while (status.getDone() == null || !status.getDone());
+
+      if (status.getError() != null) {
+        LOG.warn("Job failed! " + status.getName());
+        throw new RuntimeException("Job failed: " + status.getError());
+      }
+
+      LOG.info("Job succeeded! " + status.getName());
+    }
+    return status;
   }
 
   public String getJobName(String jobId) {
