@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Verily Life Sciences.
+ * Copyright 2017 Google.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -67,7 +67,7 @@ public class DviewIT extends TestCase {
   }
   
   @Test
-  public void testDviewDataflow() throws IOException, GeneralSecurityException {
+  public void d() throws IOException, GeneralSecurityException {
     String yaml = createTestYaml();
 
     Dview.main(new String[] { 
