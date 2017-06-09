@@ -72,11 +72,11 @@ public class GooglePipelinesProvider {
   /**
    * @throws RuntimeException if the job failed
    */
-  public Operation getJobStatus(String jobId, boolean block) {
+  public Operation getJobStatus(String jobId, boolean wait) {
     LOG.info("Checking job status for job " + jobId);
     Operation status = null;
 
-    if (!block) {
+    if (!wait) {
       try {
         status = getJobStatus(jobId);
       } catch (IOException e) {
@@ -92,7 +92,7 @@ public class GooglePipelinesProvider {
         }
   
         try {
-          status = getJobStatus(status.getName());
+          status = getJobStatus(jobId);
         } catch (IOException e) {
           LOG.warn("Error getting operation status. Retrying in " + POLL_INTERVAL + " sec");
           LOG.warn(e.toString());
@@ -124,13 +124,14 @@ public class GooglePipelinesProvider {
   
   public Operation submitJob(Pipeline pipeline, RunPipelineArgs args)
       throws IOException, GeneralSecurityException {
+    Operation status = null;
     RunPipelineRequest request = new RunPipelineRequest();
     request.setEphemeralPipeline(pipeline);
     request.setPipelineArgs(args);
 
     Genomics g = createGenomicsService();
     Run run = g.pipelines().run(request);
-    Operation op = run.execute();
-    return op;    
+    status = run.execute();
+    return status;    
   }
 }

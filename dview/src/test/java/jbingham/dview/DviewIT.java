@@ -40,6 +40,7 @@ public class DviewIT extends TestCase {
   static final Logger LOG = LoggerFactory.getLogger(DviewIT.class);
   private static final String TEST_PROJECT = System.getenv("TEST_PROJECT");
   private static final String TEST_GCS_PATH = System.getenv("TEST_GCS_PATH");
+  private static final String TEST_ZONES = "us-central1-a";
 
   public DviewIT() {
     assertNotNull("You must set the TEST_PROJECT environment variable.", TEST_PROJECT);
@@ -52,39 +53,47 @@ public class DviewIT extends TestCase {
     LOG.info("TEST_PROJECT=" + TEST_PROJECT);
     LOG.info("TEST_GCS_PATH=" + TEST_GCS_PATH);
   }
-
+  
   @Test
   public void testDview() throws IOException, GeneralSecurityException {
-    // Submit jobs with delays to simulate task dependency
-    Operation jobId1 = submitJob("job1", 0);
-    Operation jobId2a = submitJob("job2a", 60 * 2);
-    Operation jobId2b = submitJob("job2b", 60 * 2);
-    Operation jobId3 = submitJob("job3", 60 * 4);
-    Operation jobId4 = submitJob("job4", 60 * 6);
+    String yaml = createTestYaml();
 
     Dview.main(new String[] { 
         "--project=" + TEST_PROJECT,
-        "--staging=" + TEST_GCS_PATH,
-        "--runner=DirectPipelineRunner",
-        "--dag=" + "\"\n" +
-            "- " + jobId1 + " \"" +
-            "- BRANCH: \"" +
-            "  - - " + jobId2a + " \"" +
-            "    - " + jobId3 + " \"" +
-            "  - " + jobId2b + " \"" +
-            "- " + jobId4 + ""
+        "--tempLocation=" + TEST_GCS_PATH,
+        "--runner=direct",
+        "--dag=" + yaml
     });
   }
   
+  private String createTestYaml() throws IOException, GeneralSecurityException {
+    // Submit jobs to get job IDs. Add delays to simulate task dependency.
+    String jobId1 = submitJob("job1", 0).getName();
+    String jobId2a = submitJob("job2a", 60 * 2).getName();
+    String jobId2b = submitJob("job2b", 60 * 2).getName();
+    String jobId3 = submitJob("job3", 60 * 4).getName();
+    String jobId4 = submitJob("job4", 60 * 6).getName();
+    
+    String yaml = 
+        "- " + jobId1 + "\n\n" +
+        "- BRANCH:\n\n" +
+        "  - - " + jobId2a + "\n\n" +
+        "    - " + jobId3 + "\n\n" +
+        "  - " + jobId2b + "\n\n" +
+        "- " + jobId4;    
+    return yaml;
+  }
+
   private Operation submitJob(String name, int sleepTime) throws IOException, GeneralSecurityException {
     PipelineResources resources = new PipelineResources();
-    resources.setZones(Collections.singletonList("us-central1-a"));
+    resources.setZones(Collections.singletonList(TEST_ZONES));
 
     DockerExecutor docker = new DockerExecutor();
     docker.setImageName("ubuntu");
     docker.setCmd("echo hello; sleep " + sleepTime);
 
     Pipeline pipeline = new Pipeline();
+    pipeline.setProjectId(TEST_PROJECT);
     pipeline.setName("name");
     pipeline.setResources(resources);
     pipeline.setDocker(docker);
