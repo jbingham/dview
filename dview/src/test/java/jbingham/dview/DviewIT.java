@@ -67,7 +67,7 @@ public class DviewIT extends TestCase {
   }
   
   @Test
-  public void d() throws IOException, GeneralSecurityException {
+  public void testDviewDataflow() throws IOException, GeneralSecurityException {
     String yaml = createTestYaml();
 
     Dview.main(new String[] { 

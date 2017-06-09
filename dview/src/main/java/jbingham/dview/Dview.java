@@ -171,8 +171,7 @@ public class Dview {
            .apply(Flatten.<String>pCollections())
            .apply(Combine.globally(new SerializableFunction<Iterable<String>,String>() {
                public String apply(Iterable<String> input) {
-                 // the Dataflow UI messes up the graph if this value is null
-                 String output = "merge";
+                 String output = null;
   
                  for (String s : input) {
                    LOG.info("Merge: " + s);
