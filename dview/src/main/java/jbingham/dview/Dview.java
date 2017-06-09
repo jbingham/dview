@@ -39,8 +39,8 @@ import org.slf4j.LoggerFactory;
 import org.yaml.snakeyaml.Yaml;
 
 /**
- * Create a viewer for a DAG in a dsub or other pipeline. A task scheduler provider
- * for the Google Genomics Pipelines API is used to check for task status.
+ * Create a viewer for a DAG in a dsub or other pipeline. A job provider
+ * for the Google Genomics Pipelines API is used to check for job status.
  * <p>
  * The DAG must be explicitly defined in a YAML string containing job IDs.
  * On Google Cloud, the job IDs are Google Genomics Operation IDs.
@@ -100,6 +100,7 @@ public class Dview {
     createGraph(graph, input);
 
     p.run().waitUntilFinish();
+    LOG.info("Dview job completed");
   }
 
   /**
@@ -114,15 +115,16 @@ public class Dview {
 
     // A single task
     if (graphItem instanceof String) {
-      LOG.info("Adding task: " + graphItem);
+      LOG.info("Adding job: " + graphItem);
 
       String jobId = (String)graphItem;
-      String jobName = jobId; // provider.getJobName(jobId);
+      String jobName = provider.getJobName(jobId);
+      LOG.info("Job name: " + jobName);
+
       output = input.apply(jobName, ParDo.of(new WaitForJob(jobId)));
 
     // A list of tasks
     } else if (graphItem instanceof Collection<?>) {
-      LOG.info("Adding task list");
       output = input;
 
       // The output of each task is input to the next
@@ -168,17 +170,18 @@ public class Dview {
        return input
            .apply(Flatten.<String>pCollections())
            .apply(Combine.globally(new SerializableFunction<Iterable<String>,String>() {
-             public String apply(Iterable<String> input) {
-               // the Dataflow UI messes up the graph if this value is null
-               String output = "merge";
-               for (String s : input) {
-                 LOG.info("Merge: " + s);
-                 output = output == null ? s : output + "-" + s;
+               public String apply(Iterable<String> input) {
+                 // the Dataflow UI messes up the graph if this value is null
+                 String output = "merge";
+  
+                 for (String s : input) {
+                   LOG.info("Merge: " + s);
+                   output = output == null ? s : output + "-" + s;
+                 }
+                 LOG.info("Merge output: " + output);
+                 return output;
                }
-               LOG.info("Merge output: " + output);
-               return output;
-             }
-      }));    
+           }));    
     } 
   }
 
@@ -194,7 +197,7 @@ public class Dview {
     public void processElement(ProcessContext c) {
       LOG.info("Wait for job: " + jobId);
       LOG.info("Input: " + c.element());
-      provider.getJobStatus(jobId, true);
+      provider.getJobStatus(jobId);
       c.output(jobId);
     } 
   }

@@ -57,7 +57,7 @@ public class GooglePipelinesProvider {
         .build();
   }
 
-  private Operation getJobStatus(String jobId) throws IOException{
+  private Operation getOperation(String jobId) throws IOException{
     Operation status;
     try {
       Genomics service = createGenomicsService();
@@ -72,47 +72,39 @@ public class GooglePipelinesProvider {
   /**
    * @throws RuntimeException if the job failed
    */
-  public Operation getJobStatus(String jobId, boolean wait) {
-    LOG.info("Checking job status for job " + jobId);
+  public Operation getJobStatus(String jobId) {
+    LOG.info("Checking status for job " + jobId);
     Operation status = null;
-
-    if (!wait) {
-      try {
-        status = getJobStatus(jobId);
-      } catch (IOException e) {
-        LOG.error("Failed to get job status");
-        throw new RuntimeException(e);
-      }
-    } else {
-      do {
+    do {
+      if (status != null) {
         try {
+          LOG.debug("Sleeping for " + POLL_INTERVAL + "s");
           TimeUnit.SECONDS.sleep(POLL_INTERVAL);
         } catch (InterruptedException e) {
           // ignore
         }
-  
-        try {
-          status = getJobStatus(jobId);
-        } catch (IOException e) {
-          LOG.warn("Error getting operation status. Retrying in " + POLL_INTERVAL + " sec");
-          LOG.warn(e.toString());
-        }
-      } while (status.getDone() == null || !status.getDone());
-
-      if (status.getError() != null) {
-        LOG.warn("Job failed! " + status.getName());
-        throw new RuntimeException("Job failed: " + status.getError());
+      }  
+      try {
+        status = getOperation(jobId);
+      } catch (IOException e) {
+        LOG.warn("Error getting operation status. Retrying in " + POLL_INTERVAL + " sec");
+        LOG.warn(e.toString());
       }
+    } while (status.getDone() == null || !status.getDone());
 
-      LOG.info("Job succeeded! " + status.getName());
+    if (status.getError() != null) {
+      LOG.warn("Job failed! " + status.getName());
+      throw new RuntimeException("Job failed: " + status.getError());
     }
+
+    LOG.info("Job succeeded! " + status.getName());
     return status;
   }
 
   public String getJobName(String jobId) {
     Operation operation;
     try {
-      operation = getJobStatus(jobId);
+      operation = getOperation(jobId);
     } catch (Exception e) {
       throw new RuntimeException("Failed to get operation " + jobId, e);
     }

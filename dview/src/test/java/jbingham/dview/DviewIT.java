@@ -55,13 +55,25 @@ public class DviewIT extends TestCase {
   }
   
   @Test
-  public void testDview() throws IOException, GeneralSecurityException {
+  public void testDviewDirect() throws IOException, GeneralSecurityException {
     String yaml = createTestYaml();
 
     Dview.main(new String[] { 
         "--project=" + TEST_PROJECT,
         "--tempLocation=" + TEST_GCS_PATH,
         "--runner=direct",
+        "--dag=" + yaml
+    });
+  }
+  
+  @Test
+  public void testDviewDataflow() throws IOException, GeneralSecurityException {
+    String yaml = createTestYaml();
+
+    Dview.main(new String[] { 
+        "--project=" + TEST_PROJECT,
+        "--tempLocation=" + TEST_GCS_PATH,
+        "--runner=dataflow",
         "--dag=" + yaml
     });
   }
@@ -94,7 +106,7 @@ public class DviewIT extends TestCase {
 
     Pipeline pipeline = new Pipeline();
     pipeline.setProjectId(TEST_PROJECT);
-    pipeline.setName("name");
+    pipeline.setName(name);
     pipeline.setResources(resources);
     pipeline.setDocker(docker);
 
