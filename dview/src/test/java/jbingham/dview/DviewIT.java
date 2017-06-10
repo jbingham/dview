@@ -18,6 +18,8 @@ package jbingham.dview;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.junit.Test;
 import org.slf4j.Logger;
@@ -53,32 +55,56 @@ public class DviewIT extends TestCase {
     LOG.info("TEST_PROJECT=" + TEST_PROJECT);
     LOG.info("TEST_GCS_PATH=" + TEST_GCS_PATH);
   }
-  
+
   @Test
-  public void testDviewDirect() throws IOException, GeneralSecurityException {
-    String yaml = createTestYaml();
+  public void testDviewJobIdsDirect() throws IOException, GeneralSecurityException {
+    String yaml = createJobIdYaml();
 
     Dview.main(new String[] { 
         "--project=" + TEST_PROJECT,
         "--tempLocation=" + TEST_GCS_PATH,
         "--runner=direct",
-        "--dag=" + yaml
+        "--jobIds=" + yaml
     });
   }
   
   @Test
-  public void testDviewDataflow() throws IOException, GeneralSecurityException {
-    String yaml = createTestYaml();
+  public void testDviewJobIdsDataflow() throws IOException, GeneralSecurityException {
+    String yaml = createJobIdYaml();
 
     Dview.main(new String[] { 
         "--project=" + TEST_PROJECT,
         "--tempLocation=" + TEST_GCS_PATH,
         "--runner=dataflow",
-        "--dag=" + yaml
+        "--jobIds=" + yaml
+    });
+  }
+
+  @Test
+  public void testDviewJobNamesDirect() throws IOException, GeneralSecurityException {
+    String yaml = createJobNameYaml();
+
+    Dview.main(new String[] { 
+        "--project=" + TEST_PROJECT,
+        "--tempLocation=" + TEST_GCS_PATH,
+        "--runner=direct",
+        "--jobNames=" + yaml
     });
   }
   
-  private String createTestYaml() throws IOException, GeneralSecurityException {
+  @Test
+  public void testDviewJobNamesDataflow() throws IOException, GeneralSecurityException {
+    String yaml = createJobNameYaml();
+
+    Dview.main(new String[] { 
+        "--project=" + TEST_PROJECT,
+        "--tempLocation=" + TEST_GCS_PATH,
+        "--runner=dataflow",
+        "--jobNames=" + yaml
+    });
+  }
+  
+  private String createJobIdYaml() throws IOException, GeneralSecurityException {
     // Submit jobs to get job IDs. Add delays to simulate task dependency.
     String jobId1 = submitJob("job1", 0).getName();
     String jobId2a = submitJob("job2a", 60 * 2).getName();
@@ -95,8 +121,26 @@ public class DviewIT extends TestCase {
         "- " + jobId4;    
     return yaml;
   }
+  
+  private String createJobNameYaml() throws IOException, GeneralSecurityException {
+    // Submit jobs to get job IDs. Add delays to simulate task dependency.
+    submitJob("jobN1", 60 * 2).getName();
+    submitJob("jobN2a", 60 * 4).getName();
+    submitJob("jobN2b", 60 * 4).getName();
+    submitJob("jobN3", 60 * 6).getName();
+    submitJob("jobN4", 60 * 8).getName();
+    
+    String yaml = 
+        "- jobN1\n\n" +
+        "- BRANCH:\n\n" +
+        "  - - jobN2a\n\n" +
+        "    - jobN3\n\n" +
+        "  - jobN2b\n\n" +
+        "- jobN4";    
+    return yaml;
+  }
 
-  private Operation submitJob(String name, int sleepTime) throws IOException, GeneralSecurityException {
+  private Operation submitJob(String jobName, int sleepTime) throws IOException, GeneralSecurityException {
     PipelineResources resources = new PipelineResources();
     resources.setZones(Collections.singletonList(TEST_ZONES));
 
@@ -106,16 +150,20 @@ public class DviewIT extends TestCase {
 
     Pipeline pipeline = new Pipeline();
     pipeline.setProjectId(TEST_PROJECT);
-    pipeline.setName(name);
+    pipeline.setName(jobName);
     pipeline.setResources(resources);
     pipeline.setDocker(docker);
 
     LoggingOptions logging = new LoggingOptions();
     logging.setGcsPath(TEST_GCS_PATH);
+    
+    Map<String,String> labels = new HashMap<String,String>();
+    labels.put("job-name", jobName.toLowerCase());
 
     RunPipelineArgs args = new RunPipelineArgs();
     args.setProjectId(TEST_PROJECT);
     args.setLogging(logging);
+    args.setLabels(labels);
     
     GooglePipelinesProvider provider = new GooglePipelinesProvider();
     Operation operation = provider.submitJob(pipeline, args);

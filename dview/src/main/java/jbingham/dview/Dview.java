@@ -23,7 +23,6 @@ import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.options.Description;
 import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
-import org.apache.beam.sdk.options.Validation.Required;
 import org.apache.beam.sdk.transforms.Combine;
 import org.apache.beam.sdk.transforms.Create;
 import org.apache.beam.sdk.transforms.DoFn;
@@ -31,7 +30,8 @@ import org.apache.beam.sdk.transforms.Flatten;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.SerializableFunction;
-import org.apache.beam.sdk.values.PBegin;
+import org.apache.beam.sdk.transforms.Values;
+import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PCollectionList;
 import org.slf4j.Logger;
@@ -42,8 +42,8 @@ import org.yaml.snakeyaml.Yaml;
  * Create a viewer for a DAG in a dsub or other pipeline. A job provider
  * for the Google Genomics Pipelines API is used to check for job status.
  * <p>
- * The DAG must be explicitly defined in a YAML string containing job IDs.
- * On Google Cloud, the job IDs are Google Genomics Operation IDs.
+ * The DAG must be explicitly defined in a YAML string containing job IDs or
+ * job names. On Google Cloud, the job IDs are Google Genomics Operation IDs.
  * E.g.:
  * <pre>
  * - jobId1
@@ -52,12 +52,12 @@ import org.yaml.snakeyaml.Yaml;
  * </pre>
  * The special word "BRANCH" can be used to add branches to the graph:
  * <pre>
- * - jobId1
+ * - jobName1
  * - BRANCH:
- *   - - jobId2
- *     - jobId3
- *   - jobId4
- * - jobId5
+ *   - - jobName2
+ *     - jobName3
+ *   - jobName4
+ * - jobName5
  * </pre>
  * </p>
  * <p>
@@ -67,61 +67,130 @@ import org.yaml.snakeyaml.Yaml;
  * </p>
  */
 public class Dview {
-  static final Logger LOG = LoggerFactory.getLogger(Dview.class);
-  private static GooglePipelinesProvider provider = new GooglePipelinesProvider();
 
   public interface DviewOptions extends PipelineOptions {
-    @Description("DAG definition as a YAML list of job IDs and branches")
-    @Required
-    String getDag();
-    void setDag(String value);
+    @Description("Job IDs as a DAG definition in YAML. Either jobIDs or jobNames is required")
+    String getJobIds();
+    void setJobIds(String value);
+
+    @Description("Job names as a DAG definition in YAML Either jobIDs or jobNames is required")
+    String getJobNames();
+    void setJobNames(String value);
+  }
+  
+  @SuppressWarnings("serial")
+  public static class MergeBranches extends PTransform<PCollectionList<String>, PCollection<String>> {
+    @Override
+    public PCollection<String> expand(PCollectionList<String> input) {
+      return input
+          .apply(Flatten.<String>pCollections())
+          .apply(Combine.globally(new SerializableFunction<Iterable<String>,String>() {
+              public String apply(Iterable<String> input) {
+                if (input != null && input.iterator().hasNext()) {
+                  return "merge";
+                } else {
+                  return null;
+                }
+              }
+            }));    
+    }
   }
 
   @SuppressWarnings("serial")
-  public static void main(String[] args) {
-    PipelineOptionsFactory.register(DviewOptions.class);
-    DviewOptions options = 
-        PipelineOptionsFactory.fromArgs(args).withValidation().as(DviewOptions.class);
+  public static class WaitForJob extends PTransform<PCollection<String>, PCollection<String>> {
+    String projectId, jobId, jobName;
+    
+    public WaitForJob(String projectId, String jobId, String jobName) {
+      this.projectId = projectId;
+      this.jobId = jobId;
+      this.jobName = jobName;
+    }
 
-    Yaml yaml = new Yaml();
-    Object graph = yaml.load(options.getDag());
-    LOG.info("Graph: \n" + yaml.dump(graph));
+    public PCollection<String> expand(PCollection<String> input) {
+      return input.apply("BreakFusion", ParDo.of(new DoFn<String, KV<String,String>>(){
+              @ProcessElement
+              public void processElement(DoFn<String, KV<String, String>>.ProcessContext c) 
+                  throws Exception {
+               c.output(KV.of(String.valueOf(c.element().hashCode()), c.element()));
+              }
+            }))
+          .apply(Combine.<String, String>perKey(new SerializableFunction<Iterable<String>,String>(){
+              public String apply(Iterable<String> input) {
+                return input.iterator() != null && input.iterator().hasNext()
+                    ? input.iterator().next()
+                    : null;
+              }
+            }))
+          .apply(Values.<String>create())
+          .apply("Wait", ParDo.of(new DoFn<String,String>() {
+              @ProcessElement
+              public void processElement(ProcessContext c) {
+                LOG.debug("Input: " + c.element());
+                if (jobId == null) {
+                  LOG.info("Looking up ID for job named " + jobName);
+                  jobId = provider.getJobId(projectId, jobName);
+                }
+                provider.waitForJob(jobId);
+                c.output(jobId);
+              }             
+            }));
+    }
+  }
 
-    DataflowPipelineOptions dpo = options.as(DataflowPipelineOptions.class);
-    Pipeline p = Pipeline.create(dpo);
+  static final Logger LOG = LoggerFactory.getLogger(Dview.class);
+  private static GooglePipelinesProvider provider = new GooglePipelinesProvider();
+  private static boolean convertJobNamesToIds;
+  private static String projectId;
 
-    PCollection<String> input = p.begin()
-        .apply("StartPipeline", new PTransform<PBegin,PCollection<String>>() {
-          @Override
-          public PCollection<String> expand(PBegin begin) {
-            return begin.apply(Create.of("pipeline"));
-          }
-        });
-    createGraph(graph, input);
+  /**
+   * Recursively create the subgraph for each branch in a branching pipeline.
+   *
+   * @param branches
+   * @param input inputs to the branches
+   * @return root node in the subgraph
+   */
+  private PCollection<String> createBranches(Collection<?> branches, PCollection<String> input) {  
+    LOG.info("Branch count: " + branches.size());
+    PCollectionList<String> list = null;
 
-    p.run().waitUntilFinish();
-    LOG.info("Dview job completed");
+    for (Object branch : branches) {
+      LOG.info("Adding branch");
+
+      // Recursively create a graph for each branch
+      PCollection<String> branchOutput = createGraph(branch, input);
+      list = list == null ? PCollectionList.of(branchOutput) : list.and(branchOutput);
+    }
+    
+    LOG.info("Merging " + list.size() + " branches");
+    return list.apply("MergeBranches", new MergeBranches());
   }
 
   /**
    * Recursively construct the Beam pipeline graph.
    *
-   * @param graphItem a node, edge, or branch point
-   * @param input the inputs to the graph item
-   * @return the root node in the (sub)graph
+   * @param graphItem a single task, list of tasks, or branch point
+   * @param input inputs to the graph item
+   * @return root node in the (sub)graph
    */
-  static PCollection<String> createGraph(Object graphItem, PCollection<String> input) {
+   private PCollection<String> createGraph(Object graphItem, PCollection<String> input) {
     PCollection<String> output = null;
 
     // A single task
     if (graphItem instanceof String) {
       LOG.info("Adding job: " + graphItem);
+      
+      String jobId = null;
+      String jobName;
 
-      String jobId = (String)graphItem;
-      String jobName = provider.getJobName(jobId);
+      if (convertJobNamesToIds) {
+        jobName = (String)graphItem;
+      } else {
+        jobId = (String)graphItem;
+        jobName = provider.getJobName(jobId);
+      }
       LOG.info("Job name: " + jobName);
 
-      output = input.apply(jobName, ParDo.of(new WaitForJob(jobId)));
+      output = input.apply(jobName, new WaitForJob(projectId, jobId, jobName));
 
     // A list of tasks
     } else if (graphItem instanceof Collection<?>) {
@@ -147,57 +216,40 @@ public class Dview {
     return output;
   }
 
-  private static PCollection<String> createBranches(Collection<?> branches, PCollection<String> input) {  
-    LOG.info("Branch count: " + branches.size());
-    PCollectionList<String> list = null;
+  private void createAndRunPipeline(String[] args) {
+    PipelineOptionsFactory.register(DviewOptions.class);
+    DviewOptions options = 
+        PipelineOptionsFactory.fromArgs(args).withValidation().as(DviewOptions.class);
 
-    for (Object branch : branches) {
-      LOG.info("Adding branch");
-
-      // Recursively create a graph for each branch
-      PCollection<String> branchOutput = createGraph(branch, input);
-      list = list == null ? PCollectionList.of(branchOutput) : list.and(branchOutput);
+    if (options.getJobIds() == null && options.getJobNames() == null) {
+      throw new IllegalArgumentException("Either jobIds or jobNames is required");
     }
-    
-    LOG.info("Merging " + list.size() + " branches");
-    return list.apply("MergeBranches", new MergeBranches());
-  }
-  
-  @SuppressWarnings("serial")
-  public static class MergeBranches extends PTransform<PCollectionList<String>, PCollection<String>> {
-    @Override
-    public PCollection<String> expand(PCollectionList<String> input) {
-       return input
-           .apply(Flatten.<String>pCollections())
-           .apply(Combine.globally(new SerializableFunction<Iterable<String>,String>() {
-               public String apply(Iterable<String> input) {
-                 String output = null;
-  
-                 for (String s : input) {
-                   LOG.info("Merge: " + s);
-                   output = output == null ? s : output + "-" + s;
-                 }
-                 LOG.info("Merge output: " + output);
-                 return output;
-               }
-           }));    
-    } 
-  }
-
-  @SuppressWarnings("serial")
-  public static class WaitForJob extends DoFn<String, String> {
-    private String jobId;
-    
-    public WaitForJob(String jobId) {
-      this.jobId = jobId;
+    if (options.getJobIds() != null && options.getJobNames() != null) {
+      throw new IllegalArgumentException("Only one of jobIds and jobNames can be set");
     }
 
-    @ProcessElement
-    public void processElement(ProcessContext c) {
-      LOG.info("Wait for job: " + jobId);
-      LOG.info("Input: " + c.element());
-      provider.getJobStatus(jobId);
-      c.output(jobId);
-    } 
+    Yaml yaml = new Yaml();
+    Object graph;
+    if (options.getJobIds() != null) {
+      graph = yaml.load(options.getJobIds());
+    } else {
+      convertJobNamesToIds = true;
+      graph = yaml.load(options.getJobNames());
+    }
+    LOG.info("Graph: \n" + yaml.dump(graph));
+
+    DataflowPipelineOptions dpo = options.as(DataflowPipelineOptions.class);
+    projectId = dpo.getProject();
+
+    Pipeline p = Pipeline.create(dpo);
+    PCollection<String> input = p.apply("StartPipeline", Create.of("Pipeline"));
+    createGraph(graph, input);
+
+    p.run().waitUntilFinish();
+    LOG.info("Dview job completed");
+  }
+
+  public static void main(String[] args) {
+    new Dview().createAndRunPipeline(args);
   }
 }

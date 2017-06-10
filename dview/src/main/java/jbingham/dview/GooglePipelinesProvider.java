@@ -22,6 +22,7 @@ import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.services.genomics.Genomics;
 import com.google.api.services.genomics.Genomics.Pipelines.Run;
+import com.google.api.services.genomics.model.ListOperationsResponse;
 import com.google.api.services.genomics.model.Operation;
 import com.google.api.services.genomics.model.Pipeline;
 import com.google.api.services.genomics.model.RunPipelineArgs;
@@ -29,6 +30,7 @@ import com.google.api.services.genomics.model.RunPipelineRequest;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -57,7 +59,7 @@ public class GooglePipelinesProvider {
         .build();
   }
 
-  private Operation getOperation(String jobId) throws IOException{
+  public Operation getStatus(String jobId) throws IOException{
     Operation status;
     try {
       Genomics service = createGenomicsService();
@@ -69,11 +71,8 @@ public class GooglePipelinesProvider {
     return status;
   }
 
-  /**
-   * @throws RuntimeException if the job failed
-   */
-  public Operation getJobStatus(String jobId) {
-    LOG.info("Checking status for job " + jobId);
+  public Operation waitForJob(String jobId) {
+    LOG.info("Waiting for job " + jobId);
     Operation status = null;
     do {
       if (status != null) {
@@ -85,7 +84,7 @@ public class GooglePipelinesProvider {
         }
       }  
       try {
-        status = getOperation(jobId);
+        status = getStatus(jobId);
       } catch (IOException e) {
         LOG.warn("Error getting operation status. Retrying in " + POLL_INTERVAL + " sec");
         LOG.warn(e.toString());
@@ -104,14 +103,36 @@ public class GooglePipelinesProvider {
   public String getJobName(String jobId) {
     Operation operation;
     try {
-      operation = getOperation(jobId);
+      operation = getStatus(jobId);
     } catch (Exception e) {
-      throw new RuntimeException("Failed to get operation " + jobId, e);
+      throw new RuntimeException("Failed to get operation for jobId " + jobId, e);
     }
     Map<?,?> request = (Map<?,?>)operation.getMetadata().get("request");
     Map<?,?> pipeline = (Map<?,?>)request.get("ephemeralPipeline");
     String jobName = (String)pipeline.get("name");
     return jobName;
+  }
+
+  public String getJobId(String projectId, String jobName) {
+    ListOperationsResponse response;
+    try {
+      Genomics service = createGenomicsService();
+      Genomics.Operations.List request = service.operations().list("operations");
+      request.setFilter(
+          "projectId=" + projectId + 
+          " AND labels.job-name=" + jobName.toLowerCase());
+      request.setPageSize(1);
+      response = request.execute();
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+    List<Operation> operationList = response.getOperations();
+    if (operationList == null || operationList.isEmpty()) {
+      throw new IllegalStateException("jobName not found");
+    }
+    Operation operation = operationList.get(0);
+    String jobId = operation.getName();
+    return jobId;
   }
   
   public Operation submitJob(Pipeline pipeline, RunPipelineArgs args)
