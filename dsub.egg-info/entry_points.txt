@@ -1,6 +1,0 @@
-[console_scripts]
-ddel = dsub.commands.ddel:main
-dstat = dsub.commands.dstat:main
-dsub = dsub.commands.dsub:main
-dview = dsub.commands.dview:main
-
