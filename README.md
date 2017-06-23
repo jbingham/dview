@@ -12,7 +12,10 @@ dview works by creating Apache Beam jobs, and relying on the Beam runners to
 provide the visualization. For example, Google Cloud Dataflow provides a
 live-updating view of the pipeline execution graph. When running dview
 with Dataflow as the runner, you can open the Dataflow viewer to track
-progress. Apache Spark also offers a viewer. 
+progress.
+
+*Currently Dataflow is the only runner that works with dview.* Beam python
+runners for Spark and and Flink are in development.
 
 dview supports any Apache Beam runner. You can also run it locally first
 for testing, without visualization.
@@ -42,6 +45,8 @@ foundation for use by the wider batch computing community.
 
 1.  Sign up for a Google Cloud Platform account and
     [create a project](https://console.cloud.google.com/project?).
+
+1.  [Enable billing](https://support.google.com/cloud/answer/6293499#enable-billing).
 
 1.  [Enable the APIs](https://console.cloud.google.com/flows/enableapi?apiid=genomics,storage_component,compute_component&redirect=https://console.cloud.google.com).
 
