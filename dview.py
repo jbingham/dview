@@ -56,6 +56,7 @@ import apache_beam as beam
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
 import logging
+from dsub.providers import provider_base
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -142,8 +143,8 @@ class WaitForJob(beam.PTransform):
   """Block until a job completes so that the Beam graph shows the currently
   executing PTransform
   """
-  from ..providers import provider_base
-  import logging
+#  from dsub.providers import provider_base
+#  import logging
   logging.basicConfig(level=logging.INFO)
   logger = logging.getLogger(__name__)
 
@@ -152,6 +153,7 @@ class WaitForJob(beam.PTransform):
     self.args = args
     self.job_name = job_name
     self.poll_interval = 30
+    self.provider = provider_base.get_provider(self.args)
 
   # Block until job completes and raise an exception if it failed
   def wait_for_job(self, value):
@@ -161,6 +163,9 @@ class WaitForJob(beam.PTransform):
     if self.args.dry_run == True:
       logger.info('Dry run: continuing')
     else:
+      # Wait for dsub to start the next task
+      #time.sleep(self.poll_interval)
+
       logger.info('Checking job status...')
       provider = provider_base.get_provider(self.args)
 
@@ -197,11 +202,10 @@ class WaitForJob(beam.PTransform):
   def expand(self, pcoll):
     return (pcoll
         | 'JobName' >> beam.Map(lambda x: self.args.name)
+        | 'Wait' >> beam.Map(self.wait_for_job))
         | 'BreakFusion' >> beam.Map(lambda x: (x, id(x),))
         | 'CombinePerKey' >> beam.CombinePerKey(beam.combiners.TopCombineFn(1))
         | 'UnbreakFusion' >> beam.Map(lambda x: x[0])
-        | 'Wait' >> beam.Map(self.wait_for_job))
-
 
 def create_branches(branches, pcoll, args):
   """Create branches in the DAG."""
