@@ -103,8 +103,6 @@ Change `MY-PROJECT` to the name of your Cloud project. You will see a list
 of your Dataflow jobs, and you can click on your new Dataflow job name
 to view the execution graph that will live-update as your job runs.
 
-### Explanation
-
 ## What next?
 
 * See more documentation for:
