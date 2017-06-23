@@ -95,7 +95,7 @@ by appending an `&` to shell command.
 
 After running dview, open your browser to:
 
-    https://console.developers.google.com/project/MY-PROJECT/dataflow/job
+    https://console.developers.google.com/project/my-project/dataflow/job
 
 Change `MY-PROJECT` to the name of your Cloud project. You will see a list
 of your Dataflow jobs, and you can click on your new Dataflow job name
