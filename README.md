@@ -34,17 +34,9 @@ foundation for use by the wider batch computing community.
         git clone https://github.com/jbingham/dsub
         cd dview
 
-1.  Install dview (this will also install the dependencies, including dsub)
-
-        python setup.py install
-
-1.  Set up Bash tab completion (optional).
-
-        source bash_tab_complete
-
 1.  Verify the installation by running:
 
-        dview --help
+        ./dview --help
 
 ### Getting started on Google Cloud
 
