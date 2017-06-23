@@ -25,11 +25,11 @@ set -o nounset
 
 # Set these variables to connect to Google Cloud and pass all dependencies.
 
-declare DSUB_PATH="/Users/binghamj/code/jbingham/dsub"
-declare GCP_PROJECT="long-stack-300"
-declare GCP_ZONES="us-central1-*"
-declare TEMP_PATH="gs://jbingham-scratch/dview"
-declare LOGGING_PATH="gs://jbingham-scratch/logs"
+declare DSUB_PATH="/ABS/PATH/TO/DSUB/CLONE/FROM/GITHUB"
+declare GCP_PROJECT="MY-CLOUD-PROJECT"
+declare GCP_ZONES="MY-ZONES"
+declare TEMP_PATH="gs://MY-BUCKET/MY-PATH/temp"
+declare LOGGING_PATH="gs://MY-BUCKET/MY-PATH/logs"
 
 # Settings for dview and the specific Beam runner it uses.
 
