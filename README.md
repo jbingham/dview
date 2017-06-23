@@ -14,13 +14,13 @@ live-updating view of the pipeline execution graph. When running dview
 with Dataflow as the runner, you can open the Dataflow viewer to track
 progress.
 
-**Currently Dataflow is the only runner that works with dview.** Beam python
-runners for Spark and Flink are in development.
-
 ![dview in Dataflow](screenshot.png?raw=true "dview in Dataflow")
 
-dview supports any Apache Beam runner. You can also run it locally first
-for testing, without visualization.
+dview supports any Apache Beam runner that offers graph visualization.
+**However, as of July 2017 Dataflow is the only runner that works with
+dview.** Beam python runners for Spark and Flink are in development.
+
+For testing, you can also run dview locally, without visualization.
 
 If others find dview useful, our hope is to contribute dsub to an open-source
 foundation for use by the wider batch computing community.
