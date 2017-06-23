@@ -14,6 +14,8 @@ live-updating view of the pipeline execution graph. When running dview
 with Dataflow as the runner, you can open the Dataflow viewer to track
 progress. Apache Spark also offers a viewer. 
 
+![dview in Dataflow](screenshot.png?raw=true "dview in Dataflow")
+
 dview supports any Apache Beam runner. You can also run it locally first
 for testing, without visualization.
 

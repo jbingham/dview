@@ -22,26 +22,7 @@ even to run the dsub steps using the same provider. E.g., you
 can run the dsub steps locally, and generate an execution graph
 in the cloud with Dataflow.
 
-Example usage:
-
-#/bin/bash
-
-COMMON_ARGS='--provider google --project my-google-project'
-DAG='\
-- job1 \
-- BRANCH: \
-  - job2a \
-  - job2b \
-- job3'
-
-dview --dag '${DAG}' --runner dataflow ${COMMON_ARGS} --temp-path gs://b/my-tmp-path
-
-id1=(dsub --name job1 ${COMMON_ARGS} --logging gs://b/path1 --command '...')
-
-id2a=(dsub --name job2a --after ${id1} ${COMMON_ARGS} --logging gs://b/path2a --command '...')
-id2b=(dsub --name job2b --after ${id1} ${COMMON_ARGS} --logging gs://b/path2b --command '...')
-
-id3=(dsub --name job3 --after ${id2a} ${id2b} ${COMMON_ARGS} --logging gs://b/path3 --command '...')
+For example usage see the README and dview_example.sh.
 """
 from __future__ import absolute_import
 
@@ -202,10 +183,10 @@ class WaitForJob(beam.PTransform):
   def expand(self, pcoll):
     return (pcoll
         | 'JobName' >> beam.Map(lambda x: self.args.name)
-        | 'Wait' >> beam.Map(self.wait_for_job))
         | 'BreakFusion' >> beam.Map(lambda x: (x, id(x),))
         | 'CombinePerKey' >> beam.CombinePerKey(beam.combiners.TopCombineFn(1))
         | 'UnbreakFusion' >> beam.Map(lambda x: x[0])
+        | 'Wait' >> beam.Map(self.wait_for_job))
 
 def create_branches(branches, pcoll, args):
   """Create branches in the DAG."""
