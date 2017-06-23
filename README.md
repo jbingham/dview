@@ -12,7 +12,10 @@ dview works by creating Apache Beam jobs, and relying on the Beam runners to
 provide the visualization. For example, Google Cloud Dataflow provides a
 live-updating view of the pipeline execution graph. When running dview
 with Dataflow as the runner, you can open the Dataflow viewer to track
-progress. Apache Spark also offers a viewer. 
+progress.
+
+**Currently Dataflow is the only runner that works with dview.** Beam python
+runners for Spark and Flink are in development.
 
 ![dview in Dataflow](screenshot.png?raw=true "dview in Dataflow")
 
@@ -36,22 +39,16 @@ foundation for use by the wider batch computing community.
         git clone https://github.com/jbingham/dsub
         cd dview
 
-1.  Install dview (this will also install the dependencies, including dsub)
-
-        python setup.py install
-
-1.  Set up Bash tab completion (optional).
-
-        source bash_tab_complete
-
 1.  Verify the installation by running:
 
-        dview --help
+        ./dview --help
 
 ### Getting started on Google Cloud
 
 1.  Sign up for a Google Cloud Platform account and
     [create a project](https://console.cloud.google.com/project?).
+
+1.  [Enable billing](https://support.google.com/cloud/answer/6293499#enable-billing).
 
 1.  [Enable the APIs](https://console.cloud.google.com/flows/enableapi?apiid=genomics,storage_component,compute_component&redirect=https://console.cloud.google.com).
 
@@ -87,78 +84,24 @@ To view a multi-step batch job with dview, you first have to define your pipelin
 You launch dview at the top of your pipeline script, passing to dview the
 names of the individual jobs in your pipeline. Then run the script.
 
-Here's a bash example of a graph that branches and runs two jobs in parallel,
-then runs a final job after the two branches succeed. The graph is defined in YAML.
-A copy of this example can be found in the dview folder.
+The best way to understand is to look at an example: `dview_example.sh` is
+just that. Make a copy of it called `my_dview_example`, and then set a few
+parameters at the top of the script based on your Google Cloud Project details,
+including the project and bucket you created above. Then run:
 
-    #/bin/bash
-    
-    dview \
-        --dag "\
-            - job1\
-            - BRANCH:\
-              - job2\
-              - job3\
-            - job4"\
-        --runner dataflow\
-        --temp-path gs://my-bucket/logs\
-        --setup_file /abs/path/to/dsub/setup.py\
-        --project my-cloud-project \
-        --zones "us-central1-*" \
-        --logging gs://my-bucket/logs
-    
-    JOB1 = $(dsub \
-        --name job1\
-        --project my-cloud-project \
-        --zones "us-central1-*" \
-        --logging gs://my-bucket/logs \
-        --script "echo hello_1")
-    
-    JOB2 = $(dsub \
-        --name job2\
-        --after ${JOB1}\
-        --project my-cloud-project \
-        --zones "us-central1-*" \
-        --logging gs://my-bucket/logs \
-        --script "echo hello_2")
-    
-    JOB3 = $(dsub \
-        --name job3\
-        --after ${JOB1}\
-        --project my-cloud-project \
-        --zones "us-central1-*" \
-        --logging gs://my-bucket/logs \
-        --script "echo hello_3")
-    
-    JOB2 = $(dsub \
-        --name job2 job3\
-        --after ${JOB1}\
-        --project my-cloud-project \
-        --zones "us-central1-*" \
-        --logging gs://my-bucket/logs \
-        --script "echo hello_4")
+    ./my_dview_example.sh
 
-Change `my-cloud-project` to your Google Cloud project, and `my-bucket`
-to the bucket you created above. Then save the file as `my_dview_example.sh`.
-
-To run the pipeline and visualize the execution graph, go back to
-your shell prompt and run:
-
-    test_dview.sh
-
-Your shell prompt will block until the pipeline completes. If you'd rather
+Your shell prompt will block until the pipeline completes. If you'd prefer
 you can use the Linux command `screen` or run the script in the background
-by appending an `&` to the shell command.
+by appending an `&` to shell command.
 
-After running dview:
-* open https://console.cloud.google.com in your browser
-* login
-* open the hamburger menu in the upper left
-* click on the Dataflow link
-* click on the running job
+After running dview, open your browser to:
 
-If all is well, you will see an execution graph that live-updates as
-your job runs.
+    https://console.developers.google.com/project/my-project/dataflow/job
+
+Change `MY-PROJECT` to the name of your Cloud project. You will see a list
+of your Dataflow jobs, and you can click on your new Dataflow job name
+to view the execution graph that will live-update as your job runs.
 
 ### Explanation
 
