@@ -9,17 +9,18 @@ This is not an official Google product.
 dview is an open-source viewer for batch processing pipelines submitted
 using [dsub](https://github.com/googlegenomics/dsub).
 
-dview works by creating Apache Beam jobs, and relying on the Beam runners to
-provide the visualization. For example, Google Cloud Dataflow provides a
-live-updating view of the pipeline execution graph. When running dview
-with Dataflow as the runner, you can open the Dataflow viewer to track
-progress.
+dview works by creating [Apache Beam](https://beam.apache.org/)
+jobs, and relying on the Beam runner to provide the visualization. For example,
+[Google Cloud Dataflow](https://cloud.google.com/dataflow/)
+ provides a live-updating view of the pipeline execution graph. When running dview
+with Dataflow as the runner, you can open the Dataflow viewer to track progress.
 
 ![dview in Dataflow](screenshot.png?raw=true "dview in Dataflow")
 
-dview supports any Apache Beam runner that offers graph visualization.
-**However, as of July 2017 Dataflow is the only runner that works with
-dview.** Beam python runners for Spark and Flink are in development.
+dview supports any Apache Beam runner that offers graph visualization.  **However,
+as of July 2017 Dataflow is the only runner that works with dview.** Beam python
+runners for [Spark](https://beam.apache.org/documentation/runners/spark/)
+and [Flink](https://beam.apache.org/documentation/runners/flink/) are in development.
 
 For testing, you can also run dview locally, without visualization.
 
@@ -87,7 +88,9 @@ You launch dview at the top of your pipeline script, passing to dview the
 names of the individual jobs in your pipeline. Then run the script.
 
 The best way to understand is to look at an example: `dview_example.sh` is
-just that. Make a copy of it called `my_dview_example`, and then set a few
+just that. Open the file and read the comments to get a sense of how it works.
+
+Then make a copy of `dview_example.sh` called `my_dview_example`. Set the marked
 parameters at the top of the script based on your Google Cloud Project details,
 including the project and bucket you created above. Then run:
 
