@@ -6,7 +6,8 @@ This is not an official Google product.
 
 ## Overview
 
-dview is an open-source viewer for batch processing pipelines. 
+dview is an open-source viewer for batch processing pipelines submitted
+using [dsub]((https://github.com/googlegenomics/dsub).
 
 dview works by creating Apache Beam jobs, and relying on the Beam runners to
 provide the visualization. For example, Google Cloud Dataflow provides a
