@@ -22,9 +22,6 @@ dview.** Beam python runners for Spark and Flink are in development.
 
 For testing, you can also run dview locally, without visualization.
 
-If others find dview useful, our hope is to contribute dsub to an open-source
-foundation for use by the wider batch computing community.
-
 ## Getting started
 
 1.  Create and activate a Python virtualenv (optional but strongly recommended).
@@ -33,10 +30,14 @@ foundation for use by the wider batch computing community.
         virtualenv dview_env
         source dview_env/bin/activate
 
-1.  Clone this repository as well as the dsub repository.
+1.  Install dsub.
+
+        git clone https://github.com/jbingham/dsub
+        python dsub/setup.py install
+
+1. Clone the dview github repository.
 
         git clone https://github.com/jbingham/dview
-        git clone https://github.com/jbingham/dsub
         cd dview
 
 1.  Verify the installation by running:
