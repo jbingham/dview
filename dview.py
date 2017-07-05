@@ -97,6 +97,10 @@ def parse_args(argv):
       '--project',
       default='your-project-id',
       help='Google Cloud project ID.')
+  google.add_argument(
+      '--max-workers',
+      default='1',
+      help='Maximum number of worker VMs.')
 
   known_args, pipeline_args = parser.parse_known_args(argv)
 
@@ -106,6 +110,7 @@ def parse_args(argv):
       '--project=' + known_args.project,
       '--staging_location=' + known_args.temp_path,
       '--temp_location=' + known_args.temp_path,
+      '--max_num_workers=' + known_args.max_workers,
       '--job_name=' + known_args.name
   ])
   return known_args, pipeline_args
