@@ -27,14 +27,14 @@ from __future__ import absolute_import
 import os
 import sys
 import argparse
-import yaml
 import getpass
+import logging
 import time
-from datetime import datetime
+import yaml
 import apache_beam as beam
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
-import logging
+from datetime import datetime
 from dsub.providers import provider_base
 
 logging.basicConfig(level=logging.INFO)
@@ -125,10 +125,9 @@ def parse_args(argv):
       default=beam_defaults.max_num_workers,
       help='Maximum number of worker VMs.')
 
-  known_args, pipeline_args = parser.parse_known_args(argv)
+  known_args, beam_args = parser.parse_known_args(argv)
 
-  # Dataflow pipeline args
-  pipeline_args.extend([
+  beam_args.extend([
       '--runner=' + known_args.runner,
       '--project=' + known_args.project,
       '--staging_location=' + known_args.temp_location,
@@ -137,7 +136,7 @@ def parse_args(argv):
       '--job_name=' + known_args.name
   ])
 
-  return known_args, pipeline_args
+  return known_args, beam_args
 
 class MergeBranches(beam.PTransform):
   """Merge branches in the DAG"""
