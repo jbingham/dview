@@ -24,14 +24,14 @@ For example usage see the README and dview_example.sh.
 """
 from __future__ import absolute_import
 
-import os
-import sys
+import apache_beam as beam
 import argparse
 import getpass
 import logging
+import os
+import sys
 import time
 import yaml
-import apache_beam as beam
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
 from datetime import datetime
