@@ -16,93 +16,66 @@
 
 # dview_example.sh
 #
-# An example of dview with an execution graph that branches and then recombines.
-# The script creates a viewer using Apache Beam + Google Dataflow and then
-# launches the jobs in the graph with task dependencies.
+# Example using dview from a bash workflow.
 
 set -o errexit
 set -o nounset
 
-# Set these variables to connect to Google Cloud and pass all dependencies.
-
 declare DRY_RUN="--dry-run"
-declare DSUB_PATH="/ABS/PATH/TO/DSUB/CLONE/FROM/GITHUB"
-declare GCP_PROJECT="MY-CLOUD-PROJECT"
-declare GCP_ZONES="MY-ZONES"
-declare TEMP_PATH="gs://MY-BUCKET/MY-PATH/temp"
-declare LOGGING_PATH="gs://MY-BUCKET/MY-PATH/logs"
+declare PROJECT="YOUR-PROJECT-ID"
+declare LOGGING="YOUR-BUCKET-PATH"
+declare DVIEW_OPTS="
+    --runner direct
+    --project ${PROJECT}
+    --setup-file /PATH/TO/dsub/setup.py
+    --temp-location YOUR-BUCKET-PATH
+    ${DRY_RUN}"
+declare DSUB_OPTS="
+    --provider google
+    --project ${PROJECT}
+    --zones ['us-central1-*']
+    ${DRY_RUN}"
 
-# Settings for dview and the specific Beam runner it uses.
-
-declare RUNNER="dataflow"
-declare RUNNER_OPTS="\
-    ${DRY_RUN}\
-    --runner ${RUNNER}\
-    --project ${GCP_PROJECT}"
-
-# Settings for dsub and the specific provider it uses.
-
-declare PROVIDER="google"
-declare PROVIDER_OPTS="\
-    ${DRY_RUN}\
-    --provider ${PROVIDER}\
-    --project ${GCP_PROJECT}\
-    --zones ${GCP_ZONES}\
-    --logging ${LOGGING_PATH}"
-
-# Define some friendly names for the individual jobs for display in the UI.
-# Add a unique suffix to distinguish multiple runs of the same workflow.
-
+# Define unique friendly names for the individual jobs for display in the UI.
 declare PID=$$
 declare JOB1_NAME="job1-${PID}"
 declare JOB2_NAME="job2-${PID}"
 declare JOB3_NAME="job3-${PID}"
 declare JOB4_NAME="job4-${PID}"
 
-# The graph (--dag) is defined in YAML with job names as nodes
-# and the special BRANCH keyword to indicate a branch point.
+# Define a YAML graph with job names and a BRANCH
+DAG="
+- ${JOB1_NAME}
+- BRANCH:
+  - ${JOB2_NAME}
+  - ${JOB3_NAME}
+- ${JOB4_NAME}"
 
-DAG="\
- - ${JOB1_NAME}\n\
- - BRANCH:\n\
-   - ${JOB2_NAME}\n\
-   - ${JOB3_NAME}\n\
- - ${JOB4_NAME}\n"\
+# Start the viewer *before* the tasks, non-blocking in a separate process (&)
+./dview ${DVIEW_OPTS} --dag "${DAG}" &
 
-# Create the viewer *before* starting the workflow.
-# Run in a separate process (&), so that it doesn't block.
-
-./dview \
-  ${RUNNER_OPTS}\
-  --dag "${DAG}"\
-  --temp-path ${TEMP_PATH}\
-  --setup_file ${DSUB_PATH}/setup.py &
-
-# Submit the jobs in the graph.
-
+# Submit the jobs in the graph with some sleep time because they run so fast
 JOB1_ID=$(dsub \
-  ${PROVIDER_OPTS}\
-  --name ${JOB1_NAME}\
-  --command "sleep 2m; echo hello_1"\
-  --wait)
-
+    --name ${JOB1_NAME}\
+    --command "sleep 4m; echo hello_1"\
+    --logging "${LOGGING}/${JOB1_NAME}"\
+    ${DSUB_OPTS})
 JOB2_ID=$(dsub \
-  ${PROVIDER_OPTS}\
-  --name ${JOB2_NAME}\
-  --after ${JOB1_ID}\
-  --command "sleep 1m; echo hello_2"\
-  --wait)
-
+    --name ${JOB2_NAME}\
+    --after ${JOB1_ID}\
+    --command "sleep 30s; echo hello_2"\
+    --logging "${LOGGING}/${JOB2_NAME}"\
+    ${DSUB_OPTS})
 JOB3_ID=$(dsub \
-  ${PROVIDER_OPTS}\
-  --name ${JOB3_NAME}\
-  --after ${JOB1_ID}\
-  --command "sleep 2m; echo hello_3"\
-  --wait)
-
+    --name ${JOB3_NAME}\
+    --after ${JOB1_ID}\
+    --command "sleep 30s; echo hello_3"\
+    --logging "${LOGGING}/${JOB3_NAME}"\
+    ${DSUB_OPTS})
 JOB4_ID=$(dsub \
-  ${PROVIDER_OPTS}\
-  --name ${JOB4_NAME}\
-  --after ${JOB2_ID} ${JOB3_ID}\
-  --command "sleep 2m; echo hello_4")
-
+    ${DSUB_OPTS}\
+    --name ${JOB4_NAME}\
+    --after ${JOB2_ID} ${JOB3_ID}\
+    --command "sleep 30s; echo hello_4"\
+    --logging "${LOGGING}/${JOB4_NAME}"\
+    ${DSUB_OPTS})

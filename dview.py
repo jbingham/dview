@@ -40,29 +40,12 @@ from dsub.providers import provider_base
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-class ProviderOptions(object):
-  def __init__(self, **kwargs):
-    self.provider = 'local'
-    self.project = 'your-project-id'
-    self.__dict__.update(kwargs)
-
-class BeamOptions(object):
-  def __init__(self, **kwargs):
-    now = datetime.now().strftime('%m%d%H%M%S')
-    self.name = ('dview-%s-%s' % (getpass.getuser(), now))
-    self.setup_file = (os.path.dirname(os.path.realpath(sys.argv[0])) + '/setup.py')
-    self.runner = 'direct'
-    self.max_num_workers = '1'
-    self.__dict__.update(kwargs)
-
-  def __iter__(self):
-    return iter(self.__dict__.keys())
-
 def parse_args(argv):
   """Parse command-line arguments"""
 
-  provider_defaults = ProviderOptions()
-  beam_defaults = BeamOptions()
+  now = datetime.now().strftime('%m%d%H%M%S')
+  name = ('dview-%s-%s' % (getpass.getuser(), now))
+  setup_file = (os.path.dirname(os.path.realpath(sys.argv[0])) + '/setup.py')
 
   parser = argparse.ArgumentParser(
       prog='dview',
@@ -79,7 +62,7 @@ def parse_args(argv):
   dstat.add_argument(
       '--provider',
       choices=['google', 'local', 'test-fails'],
-      default=provider_defaults.provider,
+      default='local',
       help='Service provider for batch jobs.')
   dstat.add_argument(
       '--dry-run',
@@ -92,12 +75,12 @@ def parse_args(argv):
       description='Options for Apache Beam.')
   beam.add_argument(
       '--name',
-      default=beam_defaults.name,
+      default=name,
       help='Display name for the job.')
   beam.add_argument(
       '--runner',
       choices=['direct', 'dataflow'],
-      default=beam_defaults.runner,
+      default='direct',
       help='Apache Beam runner.')
 
   dataflow = parser.add_argument_group(
@@ -106,7 +89,7 @@ def parse_args(argv):
           The --project is required for both; all others apply to Dataflow only.')
   dataflow.add_argument(
       '--project',
-      default=provider_defaults.project,
+      default='you-project-id',
       help='Google Cloud project ID, required for Google provider or Dataflow.')
   dataflow.add_argument(
       '--temp-location',
@@ -114,7 +97,7 @@ def parse_args(argv):
       help='Storage path for temp files.')
   dataflow.add_argument(
       '--setup-file',
-      default=beam_defaults.setup_file,
+      default=setup_file,
       help='Path to setup.py in the dsub root directory, if not installed as a package.')
   dataflow.add_argument(
       '--extra-package',
@@ -122,7 +105,7 @@ def parse_args(argv):
       help='Absolute path to the dsub package, if installed as a package.')
   dataflow.add_argument(
       '--max-num-workers',
-      default=beam_defaults.max_num_workers,
+      default='2',
       help='Maximum number of worker VMs.')
 
   known_args, beam_args = parser.parse_known_args(argv)
@@ -255,46 +238,20 @@ def create_graph(graph_item, pcoll, provider_options):
 
   return output
 
-def dag(argv):
-  """Create the workflow graph from command-line arguments"""
+def call(argv=None):
   known_args, beam_options = parse_args(argv)
+
   yaml_string = known_args.dag.decode('string_escape')
   dag = yaml.load(yaml_string)
-  return dag
 
-def provider_options(argv):
-  """Create the provider options from command-line arguments"""
-  provider_options, beam_options = parse_args(argv)
-  return provider_options
-
-def beam_options(argv):
-  """Create the Apache Beam pipeline options from command-line arguments"""
-  known_args, beam_options = parse_args(argv)
-  return beam_options
-
-def view(dag, provider_options, beam_options):
-  """Create a Beam graph to visualize execution of a workflow
-
-  Args:
-    dag: a list of job names or dictionaries with key 'BRANCH' and
-        value a dag (a job name, list, or dictionary...)
-    provider_options: options for the batch job provider
-    beam_options: options for Apache Beam
-  """
   pipeline_options = PipelineOptions(beam_options)
   pipeline_options.view_as(SetupOptions).save_main_session = True
 
   with beam.Pipeline(options=pipeline_options) as p:
     # Kick off the pipeline with a dummy value
     pcoll = p | 'Create' >> beam.Create(['pipeline'])
-    output = create_graph(dag, pcoll, provider_options)
+    output = create_graph(dag, pcoll, known_args)
     print output
 
-def main(argv=None):
-  view(
-      dag(argv),
-      provider_options(argv),
-      beam_options(argv))
-
 if __name__ == '__main__':
-  main()
+  call()

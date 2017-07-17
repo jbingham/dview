@@ -14,56 +14,72 @@
 
 """Example using dview from a python workflow."""
 
-from dsub.providers import provider_base
-from dsub.lib import dsub_util
-from dsub.lib import param_util
-from dsub.lib import job_util
+from dsub.commands import dsub
 import os
+import dview
+import thread
 
-JOB_NAME='job1-%s' % os.getpid()
-MESSAGE='hello, world'
-COMMAND='echo ${MESSAGE}'
-IMAGE='ubuntu:14.04'
+DRY_RUN='--dry-run'
+PROJECT='YOUR-PROJECT-ID'
+LOGGING='YOUR-BUCKET-PATH'
+DVIEW_ARGS=[
+    '--runner', 'direct',
+    '--project', PROJECT,
+    '--temp-location', 'YOUR-BUCKET-PATH',
+    '--setup-file', '/PATH/TO/dsub/setup.py',
+    DRY_RUN]
+DSUB_ARGS=[
+    '--provider', 'google',
+    '--project', PROJECT,
+    '--zones', "['us-central*']",
+    DRY_RUN]
 
-PROVIDER='google'
-PROJECT='long-stack-300'
-ZONES=['us-central*']
-LOGGING_PATH='gs://jbingham-scratch/dsub'
+def main():
+  """Run a sample workflow with a viewer"""
 
-DRY_RUN=True
+  # Define unique friendly names for the individual jobs for display in the UI.
+  pid = os.getpid()
+  job1_name = 'job1-%s' % pid
+  job2_name = 'job2-%s' % pid
+  job3_name = 'job3-%s' % pid
+  job4_name = 'job4-%s' % pid
 
-class Provider:
-  project = PROJECT
-  dry_run = DRY_RUN
+  # Define a YAML graph with job names and a BRANCH
+  dag = """
+- ${JOB1_NAME}
+- BRANCH:
+  - ${JOB2_NAME}
+  - ${JOB3_NAME}
+- ${JOB4_NAME}
+"""
 
-def submit_job():
-  """Submit a dsub job"""
+  # Start the viewer *before* the tasks, non-blocking in a separate thread
+  thread.start_new_thread(dview.call, (['--dag', dag] + DVIEW_ARGS,))
 
-  provider = provider_base.get_provider(Provider())
-
-  input_file_param_util = param_util.InputFileParamUtil('input')
-  output_file_param_util = param_util.OutputFileParamUtil('output')
-
-  metadata = provider.prepare_job_metadata(
-      JOB_NAME,
-      JOB_NAME,
-      dsub_util.get_default_user())
-  metadata['script'] = job_util.Script(JOB_NAME, COMMAND)
-
-  print provider.submit_job(
-      job_util.JobResources(
-          image=IMAGE,
-          zones=ZONES,
-          logging=(LOGGING_PATH)),
-      metadata,
-      param_util.args_to_job_data(
-          ['MESSAGE=%s' % MESSAGE],
-          [],
-          [],
-          [],
-          [],
-          input_file_param_util,
-          output_file_param_util))
+  # Submit the jobs in the graph with some sleep time because they run so fast
+  job1_id = dsub.call([
+      '--name', job1_name,
+      '--command', 'sleep 4m; echo hello_1',
+      '--logging', LOGGING + '/' + job1_name]
+      + DSUB_ARGS)['job-id']
+  job2_id = dsub.call([
+      '--name', job2_name,
+      '--after', job1_id,
+      '--command', 'sleep 30s; echo hello_2',
+      '--logging', LOGGING + '/' + job2_name]
+      + DSUB_ARGS)['job-id']
+  job3_id = dsub.call([
+      '--name', job3_name,
+      '--after', job1_id,
+      '--command', 'sleep 30s; echo hello_3',
+      '--logging', LOGGING + '/' + job3_name]
+      + DSUB_ARGS)['job-id']
+  job4_id = dsub.call([
+      '--name', job4_name,
+      '--after', '%s %s' % (job2_id, job3_id),
+      '--command', 'sleep 30s; echo hello_4',
+      '--logging', LOGGING + '/' + job3_name]
+      + DSUB_ARGS)['job-id']
 
 if __name__ == '__main__':
-  submit_job()
+  main()
