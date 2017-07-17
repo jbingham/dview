@@ -25,6 +25,7 @@ set -o nounset
 
 # Set these variables to connect to Google Cloud and pass all dependencies.
 
+declare DRY_RUN="--dry-run"
 declare DSUB_PATH="/ABS/PATH/TO/DSUB/CLONE/FROM/GITHUB"
 declare GCP_PROJECT="MY-CLOUD-PROJECT"
 declare GCP_ZONES="MY-ZONES"
@@ -34,16 +35,20 @@ declare LOGGING_PATH="gs://MY-BUCKET/MY-PATH/logs"
 # Settings for dview and the specific Beam runner it uses.
 
 declare RUNNER="dataflow"
-declare RUNNER_OPTS="--runner ${RUNNER} --project ${GCP_PROJECT}"
+declare RUNNER_OPTS="\
+    ${DRY_RUN}\
+    --runner ${RUNNER}\
+    --project ${GCP_PROJECT}"
 
 # Settings for dsub and the specific provider it uses.
 
 declare PROVIDER="google"
 declare PROVIDER_OPTS="\
-  --provider ${PROVIDER}\
-  --project ${GCP_PROJECT}\
-  --zones ${GCP_ZONES}\
-  --logging ${LOGGING_PATH}"
+    ${DRY_RUN}\
+    --provider ${PROVIDER}\
+    --project ${GCP_PROJECT}\
+    --zones ${GCP_ZONES}\
+    --logging ${LOGGING_PATH}"
 
 # Define some friendly names for the individual jobs for display in the UI.
 # Add a unique suffix to distinguish multiple runs of the same workflow.

@@ -15,7 +15,7 @@
 """Test for dview"""
 from __future__ import absolute_import
 
-from dsub.commands import dview
+import dview
 import logging
 import StringIO
 import sys
@@ -27,11 +27,9 @@ import apache_beam as beam
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
 
-
 def create_pipeline():
   options = PipelineOptions(['--runner=direct', '--staging_location=foo', '--temp_location=foo'])
   return beam.Pipeline(options=options)
-
 
 class DviewTest(unittest.TestCase):
   """Unit test for dview with direct runner."""
@@ -44,25 +42,25 @@ class DviewTest(unittest.TestCase):
   MAIN_STDOUT = 'PCollection[job2/Wait.None]\n'
 
   def test_branched_graph(self):
+    yaml_string = self.SAMPLE_BRANCH.decode('string_escape')
+    graph = yaml.load(yaml_string)
+
     p = create_pipeline()
     input = p | beam.Create(['test'])
 
-    args = type('',(object,),{"foo": 1})()
-
-    yaml_string = self.SAMPLE_BRANCH.decode('string_escape')
-    graph = yaml.load(yaml_string)
+    args = dview.ProviderOptions(dry_run=True)
 
     output = dview.create_graph(graph, input, args)
     self.assertEqual(str(output), self.SAMPLE_BRANCH_OUTPUT)
 
   def test_linear_graph(self):
+    yaml_string = self.SAMPLE_LIST.decode('string_escape')
+    graph = yaml.load(yaml_string)
+
     p = create_pipeline()
     input = p | beam.Create(['test'])
 
-    args = type('',(object,),{"foo": 1})()
-
-    yaml_string = self.SAMPLE_LIST.decode('string_escape')
-    graph = yaml.load(yaml_string)
+    args = dview.ProviderOptions(dry_run=True)
 
     output = dview.create_graph(graph, input, args)
     self.assertEqual(str(output), self.SAMPLE_LIST_OUTPUT)
@@ -72,11 +70,20 @@ class DviewTest(unittest.TestCase):
     sys.stdout = StringIO.StringIO()
     dview.main([
         '--dag',
-        '%s' % self.SAMPLE_LIST,
+        self.SAMPLE_LIST,
         '--dry-run'])
     self.assertEqual(sys.stdout.getvalue(), self.MAIN_STDOUT)
     sys.stdout = stdout
 
+  def test_as_library(self):
+    stdout = sys.stdout
+    sys.stdout = StringIO.StringIO()
+    dview.view(
+        dview.dag(['--dag', self.SAMPLE_LIST]),
+        dview.ProviderOptions(dry_run=True),
+        dview.BeamOptions())
+    self.assertEqual(sys.stdout.getvalue(), self.MAIN_STDOUT)
+    sys.stdout = stdout
 
 if __name__ == '__main__':
   logging.getLogger().setLevel(logging.INFO)
