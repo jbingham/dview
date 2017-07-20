@@ -7,11 +7,13 @@ from setuptools import setup
 setup(
     name='dview',
     author='Google',
+    author_email='binghamj@google.com',
     license='Apache',
+    url='https://github.com/jbingham/dview',
     packages=find_packages(),
     install_requires=[
         'dsub',
-        'pyyaml',
+        'grpcio==1.3.5',
         'apache-beam',
         'apache-beam[gcp]'
     ],

@@ -40,6 +40,9 @@ class DviewTest(unittest.TestCase):
   SAMPLE_BRANCH = '- job1\n- BRANCH:\n  - job2a\n  - job2b'
   SAMPLE_BRANCH_OUTPUT = 'PCollection[MergeBranches/Combine.globally/InjectDefault.None]'
   MAIN_STDOUT = 'PCollection[job2/Wait.None]\n'
+  DSUB_ARGS = args = type('',(object,),{
+      "dry_run": 'True',
+      'project': 'MY-PROJECT-ID'})()
 
   def test_branched_graph(self):
     yaml_string = self.SAMPLE_BRANCH.decode('string_escape')
@@ -48,9 +51,7 @@ class DviewTest(unittest.TestCase):
     p = create_pipeline()
     input = p | beam.Create(['test'])
 
-    args = dview.ProviderOptions(dry_run=True)
-
-    output = dview.create_graph(graph, input, args)
+    output = dview.create_graph(graph, input, self.DSUB_ARGS)
     self.assertEqual(str(output), self.SAMPLE_BRANCH_OUTPUT)
 
   def test_linear_graph(self):
@@ -60,17 +61,14 @@ class DviewTest(unittest.TestCase):
     p = create_pipeline()
     input = p | beam.Create(['test'])
 
-    args = dview.ProviderOptions(dry_run=True)
-
-    output = dview.create_graph(graph, input, args)
+    output = dview.create_graph(graph, input, self.DSUB_ARGS)
     self.assertEqual(str(output), self.SAMPLE_LIST_OUTPUT)
 
   def test_dry_run(self):
     stdout = sys.stdout
     sys.stdout = StringIO.StringIO()
-    dview.main([
-        '--dag',
-        self.SAMPLE_LIST,
+    dview.call([
+        '--dag', self.SAMPLE_LIST,
         '--dry-run'])
     self.assertEqual(sys.stdout.getvalue(), self.MAIN_STDOUT)
     sys.stdout = stdout
@@ -78,10 +76,9 @@ class DviewTest(unittest.TestCase):
   def test_as_library(self):
     stdout = sys.stdout
     sys.stdout = StringIO.StringIO()
-    dview.view(
-        dview.dag(['--dag', self.SAMPLE_LIST]),
-        dview.ProviderOptions(dry_run=True),
-        dview.BeamOptions())
+    dview.call([
+        '--dag', self.SAMPLE_LIST,
+        '--dry-run'])
     self.assertEqual(sys.stdout.getvalue(), self.MAIN_STDOUT)
     sys.stdout = stdout
 

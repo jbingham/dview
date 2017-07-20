@@ -98,11 +98,11 @@ def parse_args(argv):
   dataflow.add_argument(
       '--setup-file',
       default=setup_file,
-      help='Path to setup.py in the dsub root directory, if not installed as a package.')
+      help='Path to setup.py in the dview root directory.')
   dataflow.add_argument(
       '--extra-package',
-      default='abs-path',
-      help='Absolute path to the dsub package, if installed as a package.')
+      default='/PATH/TO/dsub/dist/dsub-VERSION.tar.gz',
+      help='Absolute path to the dsub package created by \"python setup.py dist\".')
   dataflow.add_argument(
       '--max-num-workers',
       default='2',
@@ -115,6 +115,8 @@ def parse_args(argv):
       '--project=' + known_args.project,
       '--staging_location=' + known_args.temp_location,
       '--temp_location=' + known_args.temp_location,
+      '--extra_package=' + known_args.extra_package,
+      '--setup_file=' + known_args.setup_file,
       '--max_num_workers=' + known_args.max_num_workers,
       '--job_name=' + known_args.name
   ])
@@ -133,8 +135,6 @@ class WaitForJob(beam.PTransform):
   """Block until a job completes so that the Beam graph shows the currently
   executing PTransform
   """
-  logging.basicConfig(level=logging.INFO)
-  logger = logging.getLogger(__name__)
 
   def __init__(self, provider_options, job_name):
     super(beam.PTransform, self).__init__()
@@ -150,9 +150,6 @@ class WaitForJob(beam.PTransform):
     if self.provider_options.dry_run == True:
       logger.info('Dry run: continuing')
     else:
-      # Wait for dsub to start the next task
-      time.sleep(self.poll_interval)
-
       logger.info('Checking job status...')
       provider = provider_base.get_provider(self.provider_options)
 
@@ -238,7 +235,10 @@ def create_graph(graph_item, pcoll, provider_options):
 
   return output
 
-def call(argv=None):
+def call(argv):
+  """Call dview with an array of command-line flags.
+  This is the recommended way to use dview as a Python library.
+  """
   known_args, beam_options = parse_args(argv)
 
   yaml_string = known_args.dag.decode('string_escape')
@@ -248,10 +248,12 @@ def call(argv=None):
   pipeline_options.view_as(SetupOptions).save_main_session = True
 
   with beam.Pipeline(options=pipeline_options) as p:
-    # Kick off the pipeline with a dummy value
     pcoll = p | 'Create' >> beam.Create(['pipeline'])
     output = create_graph(dag, pcoll, known_args)
     print output
 
+def main():
+  call(sys.argv)
+
 if __name__ == '__main__':
-  call()
+  main()

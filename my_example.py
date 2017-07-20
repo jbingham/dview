@@ -20,18 +20,18 @@ import dview
 import thread
 
 # Comment out the first line for a dry run or the second to run on Dataflow
-#DRY_RUN=''
+#DRY_RUN=""
 DRY_RUN='--dry-run'
 
-PROJECT='YOUR-PROJECT-ID'
-LOGGING='YOUR-BUCKET-PATH'
+PROJECT='long-stack-300'
+LOGGING='gs://jbingham-scratch/dsub'
 DVIEW_ARGS=[
     '--runner', 'direct',
     '--provider', 'google',
     '--project', PROJECT,
-    '--setup-file', '/PATH/TO/dview/setup.py',
-    '--extra-package', '/PATH/TO/dsub/dist/dsub-VERSION.tar.gz'
-    '--temp-location', 'YOUR-BUCKET-PATH',
+    '--setup-file', '/Users/binghamj/code/dview/setup.py',
+    '--extra-package', '/Users/binghamj/code/dsub/dist/dsub-0.0.0.tar.gz',
+    '--temp-location', 'gs://jbingham-scratch/dview/temp',
     DRY_RUN]
 DSUB_ARGS=[
     '--provider', 'google',

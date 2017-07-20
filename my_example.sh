@@ -22,18 +22,18 @@ set -o errexit
 set -o nounset
 
 # Comment out the first line for a dry run or the second to run on Dataflow
-#declare DRY_RUN=""
-declare DRY_RUN="--dry-run"
+declare DRY_RUN=""
+#declare DRY_RUN="--dry-run"
 
-declare PROJECT="YOUR-PROJECT-ID"
-declare LOGGING="YOUR-BUCKET-PATH"
+declare PROJECT="long-stack-300"
+declare LOGGING="gs://jbingham-scratch/logs"
 declare DVIEW_OPTS="
     --runner direct
     --provider google
     --project ${PROJECT}
-    --setup-file /PATH/TO/dsub/setup.py
-    --extra-package /PATH/TO/dsub/dist/dsub-VERSION.tar.gz
-    --temp-location YOUR-BUCKET-PATH
+    --setup-file /Users/binghamj/code/jbingham/dview/setup.py
+    --extra-package /Users/binghamj/code/googlegenomics/dsub/dist/dsub-0.0.0.tar.gz
+    --temp-location gs://jbingham-scratch/dview
     ${DRY_RUN}"
 declare DSUB_OPTS="
     --provider google
@@ -49,7 +49,7 @@ declare JOB3_NAME="job3-${PID}"
 declare JOB4_NAME="job4-${PID}"
 
 # Define a YAML graph with job names and a BRANCH
-DAG="
+declare DAG="
 - ${JOB1_NAME}
 - BRANCH:
   - ${JOB2_NAME}
