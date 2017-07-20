@@ -21,7 +21,7 @@
 set -o errexit
 set -o nounset
 
-# Comment out the first line for a dry run or the second to run on Dataflow
+# Comment out the first line for a dry run or the second to run the tasks
 #declare DRY_RUN=""
 declare DRY_RUN="--dry-run"
 

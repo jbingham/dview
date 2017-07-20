@@ -19,7 +19,7 @@ import os
 import dview
 import thread
 
-# Comment out the first line for a dry run or the second to run on Dataflow
+# Comment out the first line for a dry run or the second to run the tasks
 #DRY_RUN=''
 DRY_RUN='--dry-run'
 
