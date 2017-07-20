@@ -122,6 +122,4 @@ to view the execution graph that will live-update as your job runs.
 What next?
 ==========
 
-*  See more documentation for::
-
-    `dsub <https://github.com/googlegenomics/dsub>`_
+*  See more `documentation for dsub <https://github.com/googlegenomics/dsub>`_
