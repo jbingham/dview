@@ -25,4 +25,4 @@
 readonly SCRIPT_DIR="$(dirname "${0}")"
 readonly BIN="${SCRIPT_DIR}/../install/local_env/bin"
 source "${BIN}/activate"
-python "${BIN}/dview" "${@}"
+python "${BIN}/dsub" "${@}"

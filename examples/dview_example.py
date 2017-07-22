@@ -17,26 +17,24 @@
 from dsub.commands import dsub
 from dview.commands import dview
 import os
-import thread
+import sys
 
-# Comment out the first line for a dry run or the second to run the tasks
-#DRY_RUN=''
+# Comment out the first line for a dry run or the second to run on Dataflow
+#DRY_RUN=""
 DRY_RUN='--dry-run'
 
-PROJECT='YOUR-PROJECT-ID'
-LOGGING='YOUR-BUCKET-PATH'
+PROJECT='YOUR-PROJECT'
+LOGGING='YOUR-PATH'
 DVIEW_ARGS=[
     '--runner', 'direct',
     '--provider', 'google',
     '--project', PROJECT,
-    '--setup-file', '/PATH/TO/dview/setup.py',
-    '--extra-package', '/PATH/TO/dsub/dist/dsub-VERSION.tar.gz'
-    '--temp-location', 'YOUR-BUCKET-PATH',
+    '--temp-location', 'gs://jbingham-scratch/dview/temp',
     DRY_RUN]
 DSUB_ARGS=[
     '--provider', 'google',
     '--project', PROJECT,
-    '--zones', "['us-central*']",
+    '--zones', 'us-central*',
     DRY_RUN]
 
 def main():
@@ -51,15 +49,15 @@ def main():
 
   # Define a YAML graph with job names and a BRANCH
   dag = """
-- ${JOB1_NAME}
+- %s
 - BRANCH:
-  - ${JOB2_NAME}
-  - ${JOB3_NAME}
-- ${JOB4_NAME}
-"""
+  - %s
+  - %s
+- %s
+""" % (job1_name, job2_name, job3_name, job4_name)
 
-  # Start the viewer *before* the tasks, non-blocking in a separate thread
-  thread.start_new_thread(dview.call, (['--dag', dag] + DVIEW_ARGS,))
+  # Start the viewer *before* the tasks because --after blocks with the google provider
+  dview.call(['--dag', dag] + DVIEW_ARGS,)
 
   # Submit the jobs in the graph with some sleep time because they run so fast
   job1_id = dsub.call([

@@ -45,7 +45,26 @@ def parse_args(argv):
 
   now = datetime.now().strftime('%m%d%H%M%S')
   name = ('dview-%s-%s' % (getpass.getuser(), now))
-  setup_file = (os.path.dirname(os.path.realpath(sys.argv[0])) + '/setup.py')
+
+  # Get the package root directory from the virtualenv created by the makefile
+  absdir = os.path.abspath(os.path.dirname(os.path.abspath(__file__)))
+  logger.info('absdir = %s' % absdir)
+  basedir = absdir
+  levels = 8
+  if 'site-packages' not in basedir:
+    levels = 2
+    logger.warn('Unexpected basedir')
+  for i in range(0, levels):
+    basedir = os.path.dirname(basedir)
+  logger.info('basedir = %s' % basedir)
+
+  # Set plausible defaults
+  setup_file = basedir + '/setup.py'
+  logger.info('setup_file = %s' % setup_file)
+
+  package_dir = basedir + '/install/dsub/dist'
+  extra_package = package_dir + '/' + os.listdir(package_dir)[1]
+  logger.info('extra_package = %s' % extra_package)
 
   parser = argparse.ArgumentParser(
       prog='dview',
@@ -101,7 +120,7 @@ def parse_args(argv):
       help='Path to setup.py in the dview root directory.')
   dataflow.add_argument(
       '--extra-package',
-      default='/PATH/TO/dsub/dist/dsub-VERSION.tar.gz',
+      default=extra_package,
       help='Absolute path to the dsub package created by \"python setup.py dist\".')
   dataflow.add_argument(
       '--max-num-workers',
@@ -247,10 +266,10 @@ def call(argv):
   pipeline_options = PipelineOptions(beam_options)
   pipeline_options.view_as(SetupOptions).save_main_session = True
 
-  with beam.Pipeline(options=pipeline_options) as p:
-    pcoll = p | 'Create' >> beam.Create(['pipeline'])
-    output = create_graph(dag, pcoll, known_args)
-    print output
+  p = beam.Pipeline(options=pipeline_options)
+  pcoll = p | 'Create' >> beam.Create(['pipeline'])
+  output = create_graph(dag, pcoll, known_args)
+  p.run()
 
 def main():
   call(sys.argv)
