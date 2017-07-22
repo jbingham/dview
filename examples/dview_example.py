@@ -34,6 +34,7 @@ DVIEW_ARGS=[
 DSUB_ARGS=[
     '--provider', 'google',
     '--project', PROJECT,
+    '--logging', LOGGING,
     '--zones', 'us-central*',
     DRY_RUN]
 
@@ -63,25 +64,21 @@ def main():
   job1_id = dsub.call([
       '--name', job1_name,
       '--command', 'sleep 4m; echo hello_1',
-      '--logging', LOGGING + '/' + job1_name]
       + DSUB_ARGS)['job-id']
   job2_id = dsub.call([
       '--name', job2_name,
       '--after', job1_id,
       '--command', 'sleep 30s; echo hello_2',
-      '--logging', LOGGING + '/' + job2_name]
       + DSUB_ARGS)['job-id']
   job3_id = dsub.call([
       '--name', job3_name,
       '--after', job1_id,
       '--command', 'sleep 30s; echo hello_3',
-      '--logging', LOGGING + '/' + job3_name]
       + DSUB_ARGS)['job-id']
   job4_id = dsub.call([
       '--name', job4_name,
       '--after', '%s %s' % (job2_id, job3_id),
       '--command', 'sleep 30s; echo hello_4',
-      '--logging', LOGGING + '/' + job3_name]
       + DSUB_ARGS)['job-id']
 
 if __name__ == '__main__':

@@ -41,21 +41,24 @@ Getting started
         make
         source ~/.bash_profile
 
-1.  Verify the installation by running::
+2.  Verify the installation by running::
 
-        bin/dview --help
+        dview --help
 
 Getting started on Google Cloud
 -------------------------------
 
+To visualize workflow execution graphs with Google Dataflow, you'll need to sign up
+for Google Cloud and create a cloud project and bucket to store your log files.
+
 1.  Sign up for a Google Cloud Platform account and
     `create a project <https://console.cloud.google.com/project?>`_.
 
-1.  `Enable billing <https://support.google.com/cloud/answer/6293499#enable-billing>`_.
+2.  `Enable billing <https://support.google.com/cloud/answer/6293499#enable-billing>`_.
 
-1.  `Enable the APIs <https://console.cloud.google.com/flows/enableapi?apiid=genomics,storage_component,compute_component&redirect=https://console.cloud.google.com>`_.
+3.  `Enable the APIs <https://console.cloud.google.com/flows/enableapi?apiid=genomics,storage_component,compute_component&redirect=https://console.cloud.google.com>`_.
 
-1.  `Install the Google Cloud SDK <https://cloud.google.com/sdk/>`_ and run::
+4.  `Install the Google Cloud SDK <https://cloud.google.com/sdk/>`_ and run::
 
         gcloud init
 
@@ -65,7 +68,7 @@ Getting started on Google Cloud
 
         gcloud auth application-default login
 
-1.  Create a `Google Cloud Storage <https://cloud.google.com/storage>`_ bucket.
+5.  Create a `Google Cloud Storage <https://cloud.google.com/storage>`_ bucket.
 
     The dsub logs and output files will be written to a bucket. Create a
     bucket using the `storage browser <https://cloud.google.com/storage/browser?project=>`_
@@ -96,7 +99,6 @@ Running a bash workflow
 In the `examples` directory, open `dview_example.sh` and have a look. Make sense?
 
 If you run the example as-is, it will execute locally as a dry run. To run on
-
 Google Cloud, make a copy of ``dview_example.sh`` called ``my_example.sh``. Set the marked
 parameters at the top of the script based on your Google Cloud Project details,
 including the project and bucket you created above. Then run::

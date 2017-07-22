@@ -26,19 +26,18 @@ set -o nounset
 declare DRY_RUN="--dry-run"
 
 declare PROJECT="YOUR-PROJECT-ID"
-declare LOGGING="YOUR-BUCKET-PATH"
+declare LOGGING="YOUR-LOGGING-PATH"
 declare DVIEW_OPTS="
-    --runner direct
+    --runner direct  # Change to `dataflow` to run with Google Dataflow
     --provider google
     --project ${PROJECT}
-    --setup-file /PATH/TO/dsub/setup.py
-    --extra-package /PATH/TO/dsub/dist/dsub-VERSION.tar.gz
-    --temp-location YOUR-BUCKET-PATH
+    --temp-location ${LOGGING}
     ${DRY_RUN}"
 declare DSUB_OPTS="
     --provider google
     --project ${PROJECT}
-    --zones ['us-central1-*']
+    --logging ${LOGGING}
+    --zones 'us-central1-*'
     ${DRY_RUN}"
 
 # Define unique friendly names for the individual jobs for display in the UI.
@@ -57,30 +56,26 @@ DAG="
 - ${JOB4_NAME}"
 
 # Start the viewer *before* the tasks, non-blocking in a separate process (&)
-./dview ${DVIEW_OPTS} --dag "${DAG}" &
+dview ${DVIEW_OPTS} --dag "${DAG}"
 
 # Submit the jobs in the graph with some sleep time because they run so fast
 JOB1_ID=$(dsub \
     --name ${JOB1_NAME}\
     --command "sleep 4m; echo hello_1"\
-    --logging "${LOGGING}/${JOB1_NAME}"\
     ${DSUB_OPTS})
 JOB2_ID=$(dsub \
     --name ${JOB2_NAME}\
     --after ${JOB1_ID}\
     --command "sleep 30s; echo hello_2"\
-    --logging "${LOGGING}/${JOB2_NAME}"\
     ${DSUB_OPTS})
 JOB3_ID=$(dsub \
     --name ${JOB3_NAME}\
     --after ${JOB1_ID}\
     --command "sleep 30s; echo hello_3"\
-    --logging "${LOGGING}/${JOB3_NAME}"\
     ${DSUB_OPTS})
 JOB4_ID=$(dsub \
     ${DSUB_OPTS}\
     --name ${JOB4_NAME}\
     --after ${JOB2_ID} ${JOB3_ID}\
     --command "sleep 30s; echo hello_4"\
-    --logging "${LOGGING}/${JOB4_NAME}"\
     ${DSUB_OPTS})
