@@ -19,7 +19,7 @@ using `dsub <https://github.com/googlegenomics/dsub>`_.
 dview works by creating `Apache Beam <https://beam.apache.org/>`_
 jobs, and relying on the Beam runner to provide the visualization. For example,
 `Google Cloud Dataflow <https://cloud.google.com/dataflow/>`_
- provides a live-updating view of the pipeline execution graph. When running dview
+provides a live-updating view of the pipeline execution graph. When running dview
 with Dataflow as the runner, you can open the Dataflow viewer to track progress.
 
 .. image:: screenshot.png
@@ -35,25 +35,15 @@ For testing, you can also run dview locally, without visualization.
 Getting started
 ===============
 
-1.  Create and activate a Python virtualenv (optional but strongly recommended).::
-
-        # (You can do this in a directory of your choosing.)
-        virtualenv dview_env
-        source dview_env/bin/activate
-
-1.  Install dsub.::
-
-        git clone https://github.com/jbingham/dsub
-        python dsub/setup.py install
-
-1. Clone the dview github repository.::
+1.  Install dview and add the executables to your `PATH`::
 
         git clone https://github.com/jbingham/dview
-        cd dview
+        make
+        source ~/.bash_profile
 
-1.  Verify the installation by running:::
+1.  Verify the installation by running::
 
-        ./dview --help
+        bin/dview --help
 
 Getting started on Google Cloud
 -------------------------------
@@ -91,27 +81,30 @@ Getting started on Google Cloud
     refine the `location <https://cloud.google.com/storage/docs/bucket-locations>`_
     setting with the ``-l`` option.)
 
-Running a job
-=============
+Running a workflow
+==================
 
 To view a multi-step batch job with dview, you first have to define your pipeline.
 You launch dview at the top of your pipeline script, passing to dview the
 names of the individual jobs in your pipeline. Then run the script.
 
-The best way to understand is to look at an example: ``dview_example.sh`` is
-just that. Open the file and read the comments to get a sense of how it works.
+The best way to understand is to look at an example in the `examples` directory.
 
-Then make a copy of ``dview_example.sh`` called ``my_dview_example``. Set the marked
+Running a bash workflow
+-----------------------
+
+In the `examples` directory, open `dview_example.sh` and have a look. Make sense?
+
+If you run the example as-is, it will execute locally as a dry run. To run on
+
+Google Cloud, make a copy of ``dview_example.sh`` called ``my_example.sh``. Set the marked
 parameters at the top of the script based on your Google Cloud Project details,
 including the project and bucket you created above. Then run::
 
-    ./my_dview_example.sh
+    ./my_example.sh
 
-Your shell prompt will block until the pipeline completes. If you'd prefer
-you can use the Linux command ``screen`` or run the script in the background
-by appending an ``&`` to shell command.
-
-After running dview, open your browser to::
+The script should emit a bunch of messages, then exit happily. To view the live
+execution graph, open your browser to::
 
     https://console.developers.google.com/project/my-project/dataflow/job
 
