@@ -15,8 +15,8 @@
 """Example using dview from a python workflow."""
 
 from dsub.commands import dsub
+from dview.commands import dview
 import os
-import dview
 import thread
 
 # Comment out the first line for a dry run or the second to run the tasks

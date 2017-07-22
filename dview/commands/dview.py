@@ -22,7 +22,7 @@ displayed in the Google Dataflow UI using Beam's --runner option.
 
 For example usage see the README and dview_example.sh.
 """
-from __future__ import absolute_import
+#from __future__ import absolute_import
 
 import apache_beam as beam
 import argparse
@@ -74,7 +74,7 @@ def parse_args(argv):
       title='Beam',
       description='Options for Apache Beam.')
   beam.add_argument(
-      '--name',
+      '--job-name',
       default=name,
       help='Display name for the job.')
   beam.add_argument(
@@ -85,7 +85,7 @@ def parse_args(argv):
 
   dataflow = parser.add_argument_group(
       title='Google',
-      description='Options for the Google provider or Dataflow runner.\
+      description='Options for the Google provider and Dataflow runner.\
           The --project is required for both; all others apply to Dataflow only.')
   dataflow.add_argument(
       '--project',
@@ -118,7 +118,7 @@ def parse_args(argv):
       '--extra_package=' + known_args.extra_package,
       '--setup_file=' + known_args.setup_file,
       '--max_num_workers=' + known_args.max_num_workers,
-      '--job_name=' + known_args.name
+      '--job_name=' + known_args.job_name
   ])
 
   return known_args, beam_args
