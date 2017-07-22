@@ -30,5 +30,5 @@
 # workflow from anywhere.
 
 readonly SCRIPT_DIR="$(dirname "${0}")"
-source "${SCRIPT_DIR}/../install/dsub_env/bin/activate"
+source "${SCRIPT_DIR}/../install/local_env/bin/activate"
 python "${SCRIPT_DIR}/../dview/commands/dview.py" "${@}"
