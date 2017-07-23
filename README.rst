@@ -92,12 +92,12 @@ To view a multi-step batch job with dview, you first have to define your pipelin
 You launch dview at the top of your pipeline script, passing to dview the
 names of the individual jobs in your pipeline. Then run the script.
 
-The best way to understand is to look at an example in the `examples` directory.
+The best way to understand is to look at an example in the `examples <examples>`_ directory.
 
 Running a bash workflow
 -----------------------
 
-In the `examples` directory, open `dview_example.sh` and have a look. Make sense?
+In the `examples <examples>`_ directory, open ``dview_example.sh`` and have a look. Make sense?
 
 If you run the example as-is, it will execute locally as a dry run. To run on
 Google Cloud, make a copy of ``dview_example.sh`` called ``my_example.sh``. Set the marked
