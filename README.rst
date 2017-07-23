@@ -38,6 +38,7 @@ Getting started
 1.  Install dview and add the executables to your `PATH`::
 
         git clone https://github.com/jbingham/dview
+        cd dview
         make
         source ~/.bash_profile
 
