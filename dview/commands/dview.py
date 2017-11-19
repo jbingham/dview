@@ -22,7 +22,6 @@ displayed in the Google Dataflow UI using Beam's --runner option.
 
 For example usage see the README and dview_example.sh.
 """
-#from __future__ import absolute_import
 
 import apache_beam as beam
 import argparse
