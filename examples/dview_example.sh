@@ -56,7 +56,7 @@ DAG="
 - ${JOB4_NAME}"
 
 # Start the viewer *before* the tasks, non-blocking in a separate process (&)
-dview ${DVIEW_OPTS} --dag "${DAG}"
+dview ${DVIEW_OPTS} --dag "${DAG}" &
 
 # Submit the jobs in the graph with some sleep time because they run so fast
 JOB1_ID=$(dsub \
