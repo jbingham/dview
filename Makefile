@@ -21,7 +21,9 @@ PYTHON_MINOR_VERSION := $(word 2,${PYTHON_VERSION})
 PIP_VERSION := $(wordlist 2,4,$(subst ., ,$(shell pip --version)))
 PIP_MAJOR_VERSION := "$(word 1, ${PIP_VERSION})"
 
-all: checkversions clone virtualenv path
+all: checkversions 
+
+install: checkversions clone virtualenv
 
 checkversions:
 ifneq "$(PYTHON_MAJOR_VERSION).$(PYTHON_MINOR_VERSION)" "2.7"
@@ -47,11 +49,6 @@ virtualenv:
 	source install/local_env/bin/activate && \
 		python setup.py install && \
 		python setup.py sdist
-
-path:
-	touch ~/.bash_profile && \
-		echo "export PATH=\$$PATH:$(ABS_PATH)/bin" >> ~/.bash_profile
-
 clean:
 	rm -rf install
 	sed -i -e '/$(ABS_PATH_ESCAPED)/d' ~/.bash_profile
