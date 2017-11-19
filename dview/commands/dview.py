@@ -267,7 +267,7 @@ def call(argv):
 
   p = beam.Pipeline(options=pipeline_options)
   pcoll = p | 'Create' >> beam.Create(['pipeline'])
-  output = create_graph(dag, pcoll, known_args)
+  create_graph(dag, pcoll, known_args)
   p.run()
 
 def main():
