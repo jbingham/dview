@@ -107,7 +107,7 @@ def parse_args(argv):
           The --project is required for both; all others apply to Dataflow only.')
   dataflow.add_argument(
       '--project',
-      default='you-project-id',
+      default='your-project-id',
       help='Google Cloud project ID, required for Google provider or Dataflow.')
   dataflow.add_argument(
       '--temp-location',
